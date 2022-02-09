@@ -1,6 +1,6 @@
 from PIL import Image
 from PIL import ImageTk
-
+import threading
 import tkinter as tk
 import datetime
 import imutils
@@ -18,7 +18,6 @@ class OutputFeed:
         self.root = root
         self.outputPath = "video/"
         self.frame = None
-        self.thread = None
         self.stopEvent = None
         self.fps = 0
         self.fpsLabel = fpsLabel
@@ -38,10 +37,18 @@ class OutputFeed:
         # self.cap = cv2.VideoCapture(0)
         self.currentFrame = None
         
-        # waitingFrame for queue of image to be processed
+        # waitingFrame for queue of image to be processed from VideoFeed
         self.waitingFrame = []
         
-        self.initialized = False
+        # initialize thread
+        self.stopped = True
+        self.stopEvent = threading.Event()
+        self.thread = threading.Thread(target=self.videoLoop, args=())
+        self.thread.daemon = True
+        
+    def start(self):
+        self.stopped = False
+        self.thread.start()
         
     def calculateFps(self):
         # time when finished processing current frame
@@ -56,27 +63,19 @@ class OutputFeed:
         self.fpsLabel.update()
         
     def processFrame(self):
-        time.sleep(1)
+        time.sleep(.1)
         
     def videoLoop(self):
         # if waitingFrame is not empty render current object
         if len(self.waitingFrame) > 0:
             self.currentFrame = self.waitingFrame.pop(0)
-        
-            # if not self.initialized:
-            #     # start a thread that constantly pools the video sensor for
-            #     # the most recently read frame
-            #     self.initialized = True
-            #     self.stopEvent = threading.Event()
-            #     self.thread = threading.Thread(target=self.videoLoop, args=())
-            #     self.thread.start()
                 
-            # self.processFrame()
+            self.processFrame()
             self.calculateFps()
-        img = PIL.Image.fromarray(self.currentFrame)
-        imgtk = PIL.ImageTk.PhotoImage(image=img)
-        self.label.imgtk = imgtk
-        self.label.configure(image=imgtk)
+            img = PIL.Image.fromarray(self.currentFrame)
+            imgtk = PIL.ImageTk.PhotoImage(image=img)
+            self.label.imgtk = imgtk
+            self.label.configure(image=imgtk)
         self.label.after(10, self.videoLoop)
         
     def destroy_window(self):

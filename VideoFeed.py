@@ -1,5 +1,6 @@
 from PIL import Image
 from PIL import ImageTk
+
 import tkinter as tk
 import datetime
 import imutils
@@ -39,11 +40,7 @@ class VideoFeed:
         self.currentFrame = None
         # self.cap = cv2.VideoCapture("rtsp://192.168.1.4:8080/h264_ulaw.sdp")
         
-        # start a thread that constantly pools the video sensor for
-        # the most recently read frame
-        # self.stopEvent = threading.Event()
-        # self.thread = threading.Thread(target=self.videoLoop, args=())
-        # self.thread.start()
+        self.initialize = False
         
     def calculateFps(self):
         # time when finished processing current frame
@@ -67,6 +64,9 @@ class VideoFeed:
     
         self.currentFrame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGBA)
         self.outputFeed.waitingFrame.append(self.currentFrame)
+        if not self.initialize:
+            self.initialize = True
+            self.outputFeed.start()
         
         img = PIL.Image.fromarray(self.currentFrame)
         imgtk = PIL.ImageTk.PhotoImage(image=img)

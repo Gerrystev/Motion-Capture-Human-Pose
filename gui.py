@@ -4,7 +4,6 @@ import PIL.Image
 import PIL.ImageTk
 from tkinter import *
 from tkinter import ttk
-from multiprocessing import Process
 
 from VideoFeed import VideoFeed
 from OutputFeed import OutputFeed
@@ -46,7 +45,6 @@ check_button_display.grid(row=4, column=0, columnspan=2, pady=10)
 button_display.grid(row=5, column=0, columnspan=2, pady=10)
 
 video_feed.videoLoop()
-output_feed.videoLoop()
 
 # # Grid for full screen
 # Grid.rowconfigure(root, 0, weight=1)
