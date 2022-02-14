@@ -3,12 +3,9 @@ import cv2
 import time
 
 class VideoCapture:
-    def __init__(self, queue):
-        # store the video stream object and output path, then initialize
-        # the most recently read frame, thread for reading frames, and
-        # the thread stop event
-        self.frame = None
-        
+    def __init__(self, queue, video_link = 0):
+        self.video_link = 0
+        self.first_frame = None
         self.fps = multiprocessing.Queue()
         
         # used to record the time when processed last frame
@@ -42,11 +39,19 @@ class VideoCapture:
         self.fps.put(int(1/(self.new_frame_time - self.prev_frame_time)))
         self.prev_frame_time = self.new_frame_time
         
+    def set_videocapture(self, video_link):
+        # get first frame of video
+        if video_link == "0":
+            # read webcam
+            video_link = 0
+        self.video_link = video_link
+        video_cap = cv2.VideoCapture(video_link)
+        _, self.first_frame = video_cap.read()
         
     def video_capture(self):
         # video capture loop
-        self.cap = cv2.VideoCapture("rtsp://192.168.1.2:8080/h264_ulaw.sdp")
-        # self.cap = cv2.VideoCapture(0)
+        # self.cap = cv2.VideoCapture("rtsp://192.168.1.2:8080/h264_ulaw.sdp")
+        self.cap = cv2.VideoCapture(self.video_link)
         self.cap_queue.put(self.cap)
         
         while True:
