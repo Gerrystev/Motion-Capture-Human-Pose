@@ -65,7 +65,7 @@ def show_dialog(root, video_capture, output_feed, v_queue, o_queue, video_displa
                                 parent=root)
     
     # initialize videocapture with ip address
-    video_capture.set_videocapture(ip_address)
+    video_capture.set_videocapture(ip_address, True)
     
     show_thumbnail(root, video_capture.first_frame, video_display)
     show_thumbnail(root, video_capture.first_frame, output_display)

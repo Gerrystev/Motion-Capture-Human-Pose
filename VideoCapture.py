@@ -39,11 +39,14 @@ class VideoCapture:
         self.fps.put(int(1/(self.new_frame_time - self.prev_frame_time)))
         self.prev_frame_time = self.new_frame_time
         
-    def set_videocapture(self, video_link):
+    def set_videocapture(self, video_link, is_livestream=False):
         # get first frame of video
         if video_link == "0":
             # read webcam
             video_link = 0
+        else:
+            if is_livestream:
+                video_link = "rtsp://" + video_link + "/h264_ulaw.sdp"
         self.video_link = video_link
         video_cap = cv2.VideoCapture(video_link)
         _, self.first_frame = video_cap.read()
