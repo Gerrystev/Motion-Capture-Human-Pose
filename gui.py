@@ -80,8 +80,8 @@ def start_capture(root, video_display, output_display, video_capture,
                    video_capture.fps, output_feed.fps,
                    video_fps_display, output_fps_display, video_capture.v_frame, output_feed.o_frame)
 
-    root.after(0, func=lambda: start_capture(root, video_display, output_display, video_capture,
-                  output_feed, video_fps_display, output_fps_display))
+        root.after(0, func=lambda: start_capture(root, video_display, output_display, video_capture,
+                      output_feed, video_fps_display, output_fps_display))
 
 
 if __name__ == '__main__':
