@@ -1,4 +1,4 @@
-import multiprocessing
+import torch.multiprocessing as multiprocessing
 import cv2
 import time
 
@@ -22,8 +22,6 @@ class VideoCapture:
         
         # queue for processing image
         self.queue = queue
-        
-        self.cap_queue = multiprocessing.Queue()
         
     def start(self):
         self.process.start()
@@ -55,7 +53,6 @@ class VideoCapture:
         # video capture loop
         # self.cap = cv2.VideoCapture("rtsp://192.168.1.2:8080/h264_ulaw.sdp")
         self.cap = cv2.VideoCapture(self.video_link)
-        self.cap_queue.put(self.cap)
         
         while True:
             _, frame = self.cap.read()

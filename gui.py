@@ -2,7 +2,7 @@ import tkinter as tk
 import cv2
 import PIL.Image
 import PIL.ImageTk
-import multiprocessing
+import torch.multiprocessing as multiprocessing
 from tkinter import *
 from tkinter import ttk
 from tkinter import simpledialog
@@ -49,7 +49,7 @@ def show_thumbnail(root, first_image, image_label):
    
 def browse_files(root, video_capture, output_feed, v_queue, o_queue, video_display, 
                  output_display, button_display):
-    filename = filedialog.askopenfilename(filetypes = ( ("video files","*.mp4"), ) )
+    filename = filedialog.askopenfilename(filetypes = ( ("video files","*.mp4, *.avi"), ) )
     
     # initialize videocapture with selected file
     video_capture.set_videocapture(filename)
@@ -148,6 +148,9 @@ if __name__ == '__main__':
     # Grid.rowconfigure(root, 4, weight=1)
     # Grid.columnconfigure(root, 0, weight=1)
     # Grid.columnconfigure(root, 1, weight=1)
+
+    output_feed.load_yolo_model()
+    output_feed.load_simple_model()
     
     root.mainloop()
     video_capture.destroy_window()
