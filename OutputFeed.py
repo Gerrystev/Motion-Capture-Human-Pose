@@ -173,40 +173,44 @@ class OutputFeed:
         bbox = self.detect_bbox(img)
 
         # 2d estimation
-        cen, s = self._box2cs(bbox[0], img.shape[1], img.shape[0])
-        r = 0
+        if len(bbox) > 0:
+            # if person is detected
+            cen, s = self._box2cs(bbox[0], img.shape[1], img.shape[0])
+            r = 0
 
-        trans = get_affine_transform(cen, s, r, [256, 256])
-        input = cv2.warpAffine(
-            img,
-            trans,
-            (int(config.MODEL.IMAGE_SIZE[0]), int(config.MODEL.IMAGE_SIZE[1])),
-            flags=cv2.INTER_LINEAR)
+            trans = get_affine_transform(cen, s, r, [256, 256])
+            input = cv2.warpAffine(
+                img,
+                trans,
+                (int(config.MODEL.IMAGE_SIZE[0]), int(config.MODEL.IMAGE_SIZE[1])),
+                flags=cv2.INTER_LINEAR)
 
-        transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                 std=[0.229, 0.224, 0.225]),
-        ])
-        input = transform(input).unsqueeze(0)
+            transform = transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225]),
+            ])
+            input = transform(input).unsqueeze(0)
 
-        # switch to evaluate mode
-        self.simple_model.eval()
-        with torch.no_grad():
-            # compute output heatmap
-            output = self.simple_model(input)
-            # compute coordinate
-            preds, maxvals = get_final_preds(
-                config, output.clone().cpu().numpy(), np.asarray([cen]), np.asarray([s]))
+            # switch to evaluate mode
+            self.simple_model.eval()
+            with torch.no_grad():
+                # compute output heatmap
+                output = self.simple_model(input)
+                # compute coordinate
+                preds, maxvals = get_final_preds(
+                    config, output.clone().cpu().numpy(), np.asarray([cen]), np.asarray([s]))
 
-        # plot
-        image = np.copy(img)
-        image = self.draw_skeleton(preds, image)
+            # plot
+            image = np.copy(img)
+            image = self.draw_skeleton(preds, image)
 
-        self.calculate_fps()
+            self.calculate_fps()
 
-        # return processed image
-        self.o_frame = image
+            # return processed image
+            self.o_frame = image
+        else:
+            self.o_frame = np.copy(current_frame)
 
     def load_yolo_model(self):
         cfgfile = './yolov4_cfg/yolov4-tiny.cfg'

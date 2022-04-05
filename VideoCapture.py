@@ -48,7 +48,7 @@ class VideoCapture:
         self.video_link = video_link
 
         video_cap = cv2.VideoCapture(video_link)
-        self.cap = cv2.VideoCapture(self.video_link)
+        self.cap = video_cap
 
         _, self.first_frame = video_cap.read()
         

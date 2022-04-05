@@ -18,7 +18,7 @@ def update_video(next_fps, image_label, fps_label, next_frame):
    fps = next_fps
    frame = np.copy(next_frame)
    frame = cv2.resize(frame, (width, height))
-   frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGBA)
+   frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
    img = PIL.Image.fromarray(frame)
    imgtk = PIL.ImageTk.PhotoImage(image=img)
    image_label.configure(image=imgtk)
