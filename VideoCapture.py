@@ -57,8 +57,6 @@ class VideoCapture:
         while True:
             _, frame = self.cap.read()
             if frame is not None:
-                frame = cv2.flip(frame, 1)
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGBA)
                 self.queue.put(frame)
                 self.calculate_fps()
         

@@ -1,5 +1,6 @@
 import tkinter as tk
 import cv2
+import numpy as np
 import PIL.Image
 import PIL.ImageTk
 import torch.multiprocessing as multiprocessing
@@ -15,9 +16,10 @@ def update_video(fps_queue, image_label, fps_label, queue):
    width, height = 640, 360 
    if not queue.empty(): 
        fps = fps_queue.get()
-       frame = queue.get()
+       frame = np.copy(queue.get())
        frame = cv2.flip(frame, 1)
        frame = cv2.resize(frame, (width, height))
+       frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
        img = PIL.Image.fromarray(frame)
        imgtk = PIL.ImageTk.PhotoImage(image=img)
        image_label.configure(image=imgtk)
@@ -37,7 +39,7 @@ def update_all(root, v_label, o_label, v_fps, o_fps, v_fps_label,
    
 def show_thumbnail(root, first_image, image_label):
     width, height = 640, 360 
-    first_image = cv2.cvtColor(first_image, cv2.COLOR_BGR2RGBA)
+    first_image = cv2.cvtColor(first_image, cv2.COLOR_BGR2RGB)
     first_image = cv2.flip(first_image, 1)
     first_image = cv2.resize(first_image, (width, height))
     img = PIL.Image.fromarray(first_image)

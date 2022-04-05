@@ -152,7 +152,7 @@ class OutputFeed:
         img_skel = cv2.line(img_skel, right_knee_point, right_ankle_point, (0, 238, 255), thickness)
         img_skel = cv2.line(img_skel, head_point, thorax_point, (255, 0, 0), thickness)
 
-        cv2.imwrite('predictions.jpg', img_skel)
+        return img_skel
 
         
     def start(self):
