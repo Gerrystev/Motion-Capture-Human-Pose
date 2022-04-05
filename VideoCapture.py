@@ -1,3 +1,4 @@
+import numpy as np
 import torch.multiprocessing as multiprocessing
 import cv2
 import time
@@ -22,6 +23,7 @@ class VideoCapture:
         
         # queue for processing image
         self.queue = queue
+        self.running = False
         
     def start(self):
         self.process.start()
@@ -42,23 +44,28 @@ class VideoCapture:
         if video_link == "0":
             # read webcam
             video_link = 0
+            self.first_frame = np.zeros((360, 640, 3), dtype=np.int8)
         else:
             if is_livestream:
                 video_link = "rtsp://" + video_link + "/h264_ulaw.sdp"
+                self.first_frame = np.zeros((360, 640, 3), dtype=np.int8)
+            else:
+                video_cap = cv2.VideoCapture(video_link)
+                _, self.first_frame = video_cap.read()
+
         self.video_link = video_link
-        video_cap = cv2.VideoCapture(video_link)
-        _, self.first_frame = video_cap.read()
         
     def video_capture(self):
         # video capture loop
         # self.cap = cv2.VideoCapture("rtsp://192.168.1.2:8080/h264_ulaw.sdp")
         self.cap = cv2.VideoCapture(self.video_link)
-        
+
         while True:
-            _, frame = self.cap.read()
+            ret, frame = self.cap.read()
             if frame is not None:
                 self.queue.put(frame)
-                self.calculate_fps()
+                # self.calculate_fps()
+            self.running = ret
         
     def destroy_window(self):
         self.process.terminate()

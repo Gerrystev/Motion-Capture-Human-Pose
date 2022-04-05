@@ -26,12 +26,12 @@ import cv2
 import numpy as np
 
 class OutputFeed:
-    def __init__(self, v_queue, o_queue):
+    def __init__(self, v_queue, o_frame):
         # store the video stream object and output path, then initialize
         # the most recently read frame, thread for reading frames, and
         # the thread stop event
         self.frame = None
-        self.fps = multiprocessing.Queue()
+        self.fps = 0
         
         # used to record the time when processed last frame
         self.prev_frame_time = 0
@@ -39,7 +39,6 @@ class OutputFeed:
         self.new_frame_time = 0
         
         self.current_frame = None
-        self.process = multiprocessing.Process(target=self.video_loop)
 
         # model properties
         self.simple_model = None
@@ -47,7 +46,9 @@ class OutputFeed:
         self.videopose_model = None
         
         self.v_queue = v_queue
-        self.o_queue = o_queue
+        self.o_frame = o_frame
+
+        self.frame_processed = 0
 
     def _box2cs(self, box, image_width, image_height):
         x = box[0] * image_width
@@ -156,7 +157,7 @@ class OutputFeed:
 
         
     def start(self):
-        self.process.start()
+        self.process_frame()
         
     def join(self):
         self.process.join()
@@ -164,51 +165,58 @@ class OutputFeed:
     def calculate_fps(self):
         # time when finished processing current frame
         self.new_frame_time = time.time()
-        
+
         # calculating fps
-        self.fps.put(int(1/(self.new_frame_time - self.prev_frame_time)))
+        self.fps = int(1/(self.new_frame_time - self.prev_frame_time))
         self.prev_frame_time = self.new_frame_time
         
     def process_frame(self):
         # Human estimation
-        img = self.current_frame
+        if not self.v_queue.empty():
+            img = np.copy(self.v_queue.get())
 
-        # object detection
-        bbox = self.detect_bbox(img)
+            # object detection
+            bbox = self.detect_bbox(img)
 
-        # 2d estimation
-        cen, s = self._box2cs(bbox[0], img.shape[1], img.shape[0])
-        r = 0
+            # 2d estimation
+            if len(bbox) > 0:
+                # if person is detected
+                cen, s = self._box2cs(bbox[0], img.shape[1], img.shape[0])
+                r = 0
 
-        trans = get_affine_transform(cen, s, r, [256, 256])
-        input = cv2.warpAffine(
-            img,
-            trans,
-            (int(config.MODEL.IMAGE_SIZE[0]), int(config.MODEL.IMAGE_SIZE[1])),
-            flags=cv2.INTER_LINEAR)
+                trans = get_affine_transform(cen, s, r, [256, 256])
+                input = cv2.warpAffine(
+                    img,
+                    trans,
+                    (int(config.MODEL.IMAGE_SIZE[0]), int(config.MODEL.IMAGE_SIZE[1])),
+                    flags=cv2.INTER_LINEAR)
 
-        transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                 std=[0.229, 0.224, 0.225]),
-        ])
-        input = transform(input).unsqueeze(0)
+                transform = transforms.Compose([
+                    transforms.ToTensor(),
+                    transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                         std=[0.229, 0.224, 0.225]),
+                ])
+                input = transform(input).unsqueeze(0)
 
-        # switch to evaluate mode
-        self.simple_model.eval()
-        with torch.no_grad():
-            # compute output heatmap
-            output = self.simple_model(input)
-            # compute coordinate
-            preds, maxvals = get_final_preds(
-                config, output.clone().cpu().numpy(), np.asarray([cen]), np.asarray([s]))
+                # switch to evaluate mode
+                self.simple_model.eval()
+                with torch.no_grad():
+                    # compute output heatmap
+                    output = self.simple_model(input)
+                    # compute coordinate
+                    preds, maxvals = get_final_preds(
+                        config, output.clone().cpu().numpy(), np.asarray([cen]), np.asarray([s]))
 
-            # plot
-            image = img.copy()
-            image = self.draw_skeleton(preds, image)
+                # plot
+                image = np.copy(img)
+                image = self.draw_skeleton(preds, image)
 
-        # put processed image to processing queue
-        self.o_queue.put(image)
+                self.calculate_fps()
+
+                # return processed image
+                self.o_frame = image
+            else:
+                self.o_frame = img
 
     def load_yolo_model(self):
         cfgfile = './yolov4_cfg/yolov4-tiny.cfg'

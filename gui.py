@@ -1,5 +1,6 @@
 import tkinter as tk
 import cv2
+import time
 import numpy as np
 import PIL.Image
 import PIL.ImageTk
@@ -15,9 +16,9 @@ from OutputFeed import OutputFeed
 def update_video(fps_queue, image_label, fps_label, queue):
    width, height = 640, 360 
    if not queue.empty(): 
-       fps = fps_queue.get()
+       # fps = fps_queue.get()
+       fps = 0
        frame = np.copy(queue.get())
-       frame = cv2.flip(frame, 1)
        frame = cv2.resize(frame, (width, height))
        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
        img = PIL.Image.fromarray(frame)
@@ -29,18 +30,39 @@ def update_video(fps_queue, image_label, fps_label, queue):
        fps_label.configure(text=str(fps) + " FPS")
        root.update()
 
-def update_all(root, v_label, o_label, v_fps, o_fps, v_fps_label, 
-               o_fps_label, v_queue, o_queue):
-   update_video(v_fps, v_label, v_fps_label, v_queue)
-   update_video(o_fps, o_label, o_fps_label, o_queue)
-   
-   root.after(0, func=lambda: update_all(root, v_label, o_label, v_fps, o_fps, v_fps_label, 
-               o_fps_label, v_queue, o_queue))
+def update_output(next_fps, image_label, fps_label, next_frame):
+   width, height = 640, 360
+   fps = next_fps
+   frame = np.copy(next_frame)
+   frame = cv2.resize(frame, (width, height))
+   frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+   img = PIL.Image.fromarray(frame)
+   imgtk = PIL.ImageTk.PhotoImage(image=img)
+   image_label.configure(image=imgtk)
+   image_label._image_cache = imgtk  # avoid garbage collection
+
+   # put fps into label
+   fps_label.configure(text=str(fps) + " FPS")
+   root.update()
+
+def update_all(root, video_capture, output_feed, v_label, o_label, v_fps, v_fps_label,
+               o_fps_label, v_queue, timeout_time=-1):
+   if not v_queue.empty():
+       update_video(v_fps, v_label, v_fps_label, v_queue)
+       output_feed.process_frame()
+       update_output(output_feed.fps, o_label, o_fps_label, output_feed.o_frame)
+       timeout_time = time.time()
+   else:
+       if time.time() - timeout_time >= 3 and timeout_time != -1:
+           # if timeout 3s disconnect
+           return
+
+   root.after(0, func=lambda: update_all(root, video_capture, output_feed, v_label, o_label, v_fps, v_fps_label,
+           o_fps_label, v_queue, timeout_time))
    
 def show_thumbnail(root, first_image, image_label):
     width, height = 640, 360 
     first_image = cv2.cvtColor(first_image, cv2.COLOR_BGR2RGB)
-    first_image = cv2.flip(first_image, 1)
     first_image = cv2.resize(first_image, (width, height))
     img = PIL.Image.fromarray(first_image)
     imgtk = PIL.ImageTk.PhotoImage(image=img)
@@ -49,7 +71,7 @@ def show_thumbnail(root, first_image, image_label):
     
     root.update()
    
-def browse_files(root, video_capture, output_feed, v_queue, o_queue, video_display, 
+def browse_files(root, video_capture, video_display,
                  output_display, button_display):
     filename = filedialog.askopenfilename(filetypes = ( ("video files","*.mp4, *.avi"), ) )
     
@@ -59,9 +81,8 @@ def browse_files(root, video_capture, output_feed, v_queue, o_queue, video_displ
     show_thumbnail(root, video_capture.first_frame, video_display)
     show_thumbnail(root, video_capture.first_frame, output_display)
     button_display['state'] = "normal"
-    
 
-def show_dialog(root, video_capture, output_feed, v_queue, o_queue, video_display, 
+def show_dialog(root, video_capture, video_display,
                 output_display, button_display):
     ip_address = simpledialog.askstring("Input", "Input the ip address of camera",
                                 parent=root)
@@ -74,14 +95,13 @@ def show_dialog(root, video_capture, output_feed, v_queue, o_queue, video_displa
     button_display['state'] = "normal"
     
 def start_capture(root, video_display, output_display, video_capture, 
-                  output_feed, video_fps_display, output_fps_display, v_queue, o_queue):
-    
+                  output_feed, video_fps_display, output_fps_display, v_queue):
+
     video_capture.start()
-    output_feed.start()
-    
-    update_all(root, video_display, output_display, 
-               video_capture.fps, output_feed.fps, 
-               video_fps_display, output_fps_display, v_queue, o_queue)
+
+    update_all(root, video_capture, output_feed, video_display, output_display,
+               video_capture.fps,
+               video_fps_display, output_fps_display, v_queue)
 
 if __name__ == '__main__':
     root = Tk()
@@ -105,19 +125,17 @@ if __name__ == '__main__':
     # video type button
     # initalize queue for multiprocessing
     v_queue = multiprocessing.Queue()
-    o_queue = multiprocessing.Queue()
+    o_frame = None
     
     video_capture = VideoCapture(v_queue)
-    output_feed = OutputFeed(v_queue, o_queue)
+    output_feed = OutputFeed(v_queue, o_frame)
     
     livestream_button_display = ttk.Button(root, text="Livestream Video", width=200,
-                                command= lambda: show_dialog(root, video_capture, 
-                                                             output_feed, v_queue, o_queue,
+                                command= lambda: show_dialog(root, video_capture,
                                                              video_display, output_display,
                                                              button_display))
     video_button_display = ttk.Button(root, text="Choose video file", width=200,
-                                       command= lambda: browse_files(root, video_capture, 
-                                                             output_feed, v_queue, o_queue,
+                                       command= lambda: browse_files(root, video_capture,
                                                              video_display, output_display, 
                                                              button_display))
     
@@ -126,7 +144,7 @@ if __name__ == '__main__':
                                 command= lambda: start_capture(
                                        root, video_display, output_display, 
                                        video_capture, output_feed, video_fps_display, 
-                                       output_fps_display, v_queue, o_queue))
+                                       output_fps_display, v_queue))
     
     # display everything to grid
     title_display.grid(row=0, column=0, columnspan=2, pady=10, stick="nsew")
@@ -156,6 +174,5 @@ if __name__ == '__main__':
     
     root.mainloop()
     video_capture.destroy_window()
-    output_feed.destroy_window()
     cv2.destroyAllWindows()
 
