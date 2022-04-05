@@ -26,12 +26,12 @@ import cv2
 import numpy as np
 
 class OutputFeed:
-    def __init__(self, v_queue, o_queue):
+    def __init__(self, o_frame):
         # store the video stream object and output path, then initialize
         # the most recently read frame, thread for reading frames, and
         # the thread stop event
         self.frame = None
-        self.fps = multiprocessing.Queue()
+        self.fps = 0
         
         # used to record the time when processed last frame
         self.prev_frame_time = 0
@@ -39,15 +39,14 @@ class OutputFeed:
         self.new_frame_time = 0
         
         self.current_frame = None
-        self.process = multiprocessing.Process(target=self.video_loop)
+        # self.process = multiprocessing.Process(target=self.video_loop)
 
         # model properties
         self.simple_model = None
         self.yolo_model = None
         self.videopose_model = None
-        
-        self.v_queue = v_queue
-        self.o_queue = o_queue
+
+        self.o_frame = o_frame
 
     def _box2cs(self, box, image_width, image_height):
         x = box[0] * image_width
@@ -81,7 +80,8 @@ class OutputFeed:
 
         if use_cuda:
             self.yolo_model.cuda()
-
+            
+        img = np.copy(img)
         sized = cv2.resize(img, (self.yolo_model.width, self.yolo_model.height))
         sized = cv2.cvtColor(sized, cv2.COLOR_BGR2RGB)
 
@@ -152,26 +152,22 @@ class OutputFeed:
         img_skel = cv2.line(img_skel, right_knee_point, right_ankle_point, (0, 238, 255), thickness)
         img_skel = cv2.line(img_skel, head_point, thorax_point, (255, 0, 0), thickness)
 
-        cv2.imwrite('predictions.jpg', img_skel)
+        return img_skel
 
-        
     def start(self):
-        self.process.start()
-        
-    def join(self):
-        self.process.join()
+        self.video_loop()
         
     def calculate_fps(self):
         # time when finished processing current frame
         self.new_frame_time = time.time()
         
         # calculating fps
-        self.fps.put(int(1/(self.new_frame_time - self.prev_frame_time)))
+        self.fps = int(1/(self.new_frame_time - self.prev_frame_time))
         self.prev_frame_time = self.new_frame_time
         
-    def process_frame(self):
+    def process_frame(self, current_frame):
         # Human estimation
-        img = self.current_frame
+        img = current_frame
 
         # object detection
         bbox = self.detect_bbox(img)
@@ -203,12 +199,14 @@ class OutputFeed:
             preds, maxvals = get_final_preds(
                 config, output.clone().cpu().numpy(), np.asarray([cen]), np.asarray([s]))
 
-            # plot
-            image = img.copy()
-            image = self.draw_skeleton(preds, image)
+        # plot
+        image = np.copy(img)
+        image = self.draw_skeleton(preds, image)
 
-        # put processed image to processing queue
-        self.o_queue.put(image)
+        self.calculate_fps()
+
+        # return processed image
+        self.o_frame = image
 
     def load_yolo_model(self):
         cfgfile = './yolov4_cfg/yolov4-tiny.cfg'
@@ -241,16 +239,6 @@ class OutputFeed:
         print('=> loading model from {}'.format(weightfile))
         self.simple_model.load_state_dict(torch.load(weightfile))
 
-    def video_loop(self):
-        # if waitingFrame is not empty render current object
-        while True:
-            if not self.v_queue.empty():
-                self.current_frame = self.v_queue.get()
-                self.current_frame = self.current_frame[:, :, :3]
-                    
-                self.process_frame()
-
-                self.calculate_fps()
         
     def destroy_window(self):
         self.process.terminate()
