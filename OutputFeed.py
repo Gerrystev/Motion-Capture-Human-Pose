@@ -25,6 +25,16 @@ import torch
 import cv2
 import numpy as np
 
+from common.generators import UnchunkedGenerator
+from common.model import TemporalModel
+from common.humaneva_dataset import humaneva_skeleton
+from common.custom_dataset import custom_camera_params
+from common.camera import camera_to_world
+from common.camera import normalize_screen_coordinates
+
+from common.visualization import Grid3D
+
+
 class OutputFeed:
     def __init__(self, v_queue, o_frame):
         # store the video stream object and output path, then initialize
@@ -49,6 +59,19 @@ class OutputFeed:
         self.o_frame = o_frame
 
         self.frame_processed = 0
+
+        # ndarray of 2d predicted joints
+        self.preds_2d = None
+
+        # videopose3d properties
+        self.metadata = None
+        self.receptive_field = 1        # n frame used as receptive field
+
+        # grid 3D properties
+        azimuth = np.array(0., dtype='float32')
+        viewport = (640, 360)
+        self.grid_3d = Grid3D(humaneva_skeleton, azimuth, viewport)
+        self.first_frame = self.grid_3d.get_figure_numpy()
 
     def _box2cs(self, box, image_width, image_height):
         x = box[0] * image_width
@@ -95,65 +118,6 @@ class OutputFeed:
 
         return boxes[0]
 
-    def draw_skeleton(self, preds, img):
-        pred = preds[0, :, 0:2] + 1.0
-        pred = np.round(pred).astype(int)
-
-        head = np.where(config.HUMANEVA_KEYPOINTS == 'head')[0][0]
-        pelv = np.where(config.HUMANEVA_KEYPOINTS == 'pelvis')[0][0]
-        thor = np.where(config.HUMANEVA_KEYPOINTS == 'thorax')[0][0]
-        lsho = np.where(config.HUMANEVA_KEYPOINTS == 'lsho')[0][0]
-        lelb = np.where(config.HUMANEVA_KEYPOINTS == 'lelb')[0][0]
-        lwri = np.where(config.HUMANEVA_KEYPOINTS == 'lwri')[0][0]
-        lhip = np.where(config.HUMANEVA_KEYPOINTS == 'lhip')[0][0]
-        lkne = np.where(config.HUMANEVA_KEYPOINTS == 'lkne')[0][0]
-        lank = np.where(config.HUMANEVA_KEYPOINTS == 'lank')[0][0]
-
-        rsho = np.where(config.HUMANEVA_KEYPOINTS == 'rsho')[0][0]
-        relb = np.where(config.HUMANEVA_KEYPOINTS == 'relb')[0][0]
-        rwri = np.where(config.HUMANEVA_KEYPOINTS == 'rwri')[0][0]
-        rkne = np.where(config.HUMANEVA_KEYPOINTS == 'rkne')[0][0]
-        rank = np.where(config.HUMANEVA_KEYPOINTS == 'rank')[0][0]
-        rhip = np.where(config.HUMANEVA_KEYPOINTS == 'rhip')[0][0]
-
-        # get keypoint (15 keypoints)
-        pelvis_point = tuple(pred[pelv])
-        thorax_point = tuple(pred[thor])
-        left_shoulder_point = tuple(pred[lsho])
-        left_elbow_point = tuple(pred[lelb])
-        left_wrist_point = tuple(pred[lwri])
-        right_shoulder_point = tuple(pred[rsho])
-        right_elbow_point = tuple(pred[relb])
-        right_wrist_point = tuple(pred[rwri])
-        left_hip_point = tuple(pred[lhip])
-        left_knee_point = tuple(pred[lkne])
-        left_ankle_point = tuple(pred[lank])
-        right_hip_point = tuple(pred[rhip])
-        right_knee_point = tuple(pred[rkne])
-        right_ankle_point = tuple(pred[rank])
-        head_point = tuple(pred[head])
-
-        # draw line to make a skeleton
-        # color (argument 4 is BGR)
-        # thickness in px
-        thickness = 5
-
-        img_skel = cv2.line(img, pelvis_point, thorax_point, (203, 192, 255), thickness)
-        img_skel = cv2.line(img_skel, thorax_point, left_shoulder_point, (0, 165, 255), thickness)
-        img_skel = cv2.line(img_skel, left_shoulder_point, left_elbow_point, (128, 0, 128), thickness)
-        img_skel = cv2.line(img_skel, left_elbow_point, left_wrist_point, (0, 75, 150), thickness)
-        img_skel = cv2.line(img_skel, thorax_point, right_shoulder_point, (0, 255, 255), thickness)
-        img_skel = cv2.line(img_skel, right_shoulder_point, right_elbow_point, (0, 255, 0), thickness)
-        img_skel = cv2.line(img_skel, right_elbow_point, right_wrist_point, (0, 0, 255), thickness)
-        img_skel = cv2.line(img_skel, pelvis_point, left_hip_point, (33, 0, 133), thickness)
-        img_skel = cv2.line(img_skel, left_hip_point, left_knee_point, (0, 76, 255), thickness)
-        img_skel = cv2.line(img_skel, left_knee_point, left_ankle_point, (0, 255, 0), thickness)
-        img_skel = cv2.line(img_skel, pelvis_point, right_hip_point, (248, 0, 252), thickness)
-        img_skel = cv2.line(img_skel, right_hip_point, right_knee_point, (0, 196, 92), thickness)
-        img_skel = cv2.line(img_skel, right_knee_point, right_ankle_point, (0, 238, 255), thickness)
-        img_skel = cv2.line(img_skel, head_point, thorax_point, (255, 0, 0), thickness)
-
-        return img_skel
 
         
     def start(self):
@@ -169,6 +133,25 @@ class OutputFeed:
         # calculating fps
         self.fps = int(1/(self.new_frame_time - self.prev_frame_time))
         self.prev_frame_time = self.new_frame_time
+
+    def animate_3d(self, preds_3d):
+        # animation properties
+        azimuth = np.array(0., dtype='float32')
+        viewport = (640, 360)
+        cam = {
+            'orientation': [0.4214752, -0.4961493, -0.5838273, 0.4851187],
+            'translation': [4112.9121, 626.4929, 845.2988],
+        }
+
+        # cam = custom_camera_params
+        prediction = camera_to_world(preds_3d, R=np.array(cam['orientation'], dtype='float32'),
+                                     t=np.array(cam['translation'], dtype='float32')/1000)
+        # rot = cam['orientation']
+        # prediction = camera_to_world(prediction, R=rot, t=0)
+
+        anim_output = {'Reconstruction': prediction}
+
+        return self.grid_3d.update_video(anim_output)
         
     def process_frame(self):
         # Human estimation
@@ -200,6 +183,8 @@ class OutputFeed:
 
                 # switch to evaluate mode
                 self.simple_model.eval()
+                self.videopose_model.eval()
+
                 with torch.no_grad():
                     # compute output heatmap
                     output = self.simple_model(input)
@@ -207,14 +192,53 @@ class OutputFeed:
                     preds, maxvals = get_final_preds(
                         config, output.clone().cpu().numpy(), np.asarray([cen]), np.asarray([s]))
 
-                # plot
-                image = np.copy(img)
-                image = self.draw_skeleton(preds, image)
+                    # if self.preds_2d is None:
+                    #     self.preds_2d = np.copy(preds)
+                    # else:
+                    #     self.preds_2d = np.concatenate((self.preds_2d, preds))
 
-                self.calculate_fps()
+                    self.preds_2d = np.copy(preds)
 
-                # return processed image
-                self.o_frame = image
+                    if self.preds_2d.shape[0] >= self.receptive_field:
+                        # if array of 2d pred is fullfilled receptive field criteria
+                        # estimate 3D
+                        # normalize screen with camera
+                        w, h = 640, 360
+                        kps = np.copy(self.preds_2d)
+                        kps[..., :2] = normalize_screen_coordinates(kps[0][..., :2], w=w, h=h)
+
+                        pad = (self.receptive_field - 1) // 2  # Padding on each side
+                        causal = 0
+
+                        keypoints_symmetry = self.metadata['keypoints_symmetry']
+                        kps_left, kps_right = list(keypoints_symmetry[0]), list(keypoints_symmetry[1])
+                        gen = UnchunkedGenerator(None, None, [kps],
+                                                 pad=pad, causal_shift=causal,
+                                                 augment=True,
+                                                 kps_left=kps_left, kps_right=kps_right, joints_left=kps_left,
+                                                 joints_right=kps_right)
+
+                        for _, batch, batch_2d in gen.next_epoch():
+                            inputs_2d = torch.from_numpy(batch_2d.astype('float32'))
+                            if torch.cuda.is_available():
+                                inputs_2d = inputs_2d.cuda()
+
+                                predicted_3d_pos = self.videopose_model(inputs_2d)
+
+                                # Undo flipping and take average with non-flipped version
+                                predicted_3d_pos[1, :, :, 0] *= -1
+                                predicted_3d_pos[1, :, kps_left + kps_right] = predicted_3d_pos[1, :,
+                                                                                     kps_right + kps_left]
+                                predicted_3d_pos = torch.mean(predicted_3d_pos, dim=0, keepdim=True)
+
+                                predicted_3d_pos = predicted_3d_pos.squeeze(0).cpu().numpy()
+
+                                # start 3D visualization
+                                self.o_frame = self.animate_3d(predicted_3d_pos)
+
+                                self.frame_processed += 1
+
+                                self.calculate_fps()
             else:
                 self.o_frame = img
 
@@ -248,6 +272,39 @@ class OutputFeed:
 
         print('=> loading model from {}'.format(weightfile))
         self.simple_model.load_state_dict(torch.load(weightfile))
+
+    def load_videopose(self):
+        # generate metadata
+        metadata = {}
+        metadata['layout_name'] = 'humaneva15'
+        metadata['num_joints'] = 15
+        metadata['keypoints_symmetry'] = [[2, 3, 4, 8, 9, 10], [5, 6, 7, 11, 12, 13]]
+
+        self.metadata = metadata
+
+        # videopose architecture
+        keypoints = metadata['num_joints']
+        filter_widths = [1, 1, 1]
+        causal = False
+        dropout = 0.25
+        channels = 1024
+        dense = False
+
+        model = TemporalModel(keypoints, 2,
+                                  keypoints,
+                                  filter_widths=filter_widths, causal=causal, dropout=dropout,
+                                  channels=channels,
+                                  dense=dense)
+
+        # load pretrained
+        pretrained_filename = './models/videopose3d/pretrained_humaneva15_rf-1.bin'
+        pretrained = torch.load(pretrained_filename)
+        model.load_state_dict(pretrained['model_pos'])
+        model.cuda()
+
+        self.receptive_field = model.receptive_field()
+
+        self.videopose_model = model
 
     def video_loop(self):
         # if waitingFrame is not empty render current object

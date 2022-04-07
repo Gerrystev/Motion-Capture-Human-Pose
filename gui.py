@@ -71,7 +71,7 @@ def show_thumbnail(root, first_image, image_label):
     
     root.update()
    
-def browse_files(root, video_capture, video_display,
+def browse_files(root, video_capture, output_feed, video_display,
                  output_display, button_display):
     filename = filedialog.askopenfilename(filetypes = ( ("video files","*.mp4, *.avi"), ) )
     
@@ -79,10 +79,10 @@ def browse_files(root, video_capture, video_display,
     video_capture.set_videocapture(filename)
     
     show_thumbnail(root, video_capture.first_frame, video_display)
-    show_thumbnail(root, video_capture.first_frame, output_display)
+    show_thumbnail(root, output_feed.first_frame, output_display)
     button_display['state'] = "normal"
 
-def show_dialog(root, video_capture, video_display,
+def show_dialog(root, video_capture, output_feed, video_display,
                 output_display, button_display):
     ip_address = simpledialog.askstring("Input", "Input the ip address of camera",
                                 parent=root)
@@ -91,7 +91,7 @@ def show_dialog(root, video_capture, video_display,
     video_capture.set_videocapture(ip_address, True)
     
     show_thumbnail(root, video_capture.first_frame, video_display)
-    show_thumbnail(root, video_capture.first_frame, output_display)
+    show_thumbnail(root, output_feed.first_frame, output_display)
     button_display['state'] = "normal"
     
 def start_capture(root, video_display, output_display, video_capture, 
@@ -125,17 +125,17 @@ if __name__ == '__main__':
     # video type button
     # initalize queue for multiprocessing
     v_queue = multiprocessing.Queue()
-    o_frame = None
+    o_frame = np.zeros((360, 640, 3), dtype=np.int8)        # init as black screen
     
     video_capture = VideoCapture(v_queue)
     output_feed = OutputFeed(v_queue, o_frame)
     
     livestream_button_display = ttk.Button(root, text="Livestream Video", width=200,
-                                command= lambda: show_dialog(root, video_capture,
+                                command= lambda: show_dialog(root, video_capture, output_feed,
                                                              video_display, output_display,
                                                              button_display))
     video_button_display = ttk.Button(root, text="Choose video file", width=200,
-                                       command= lambda: browse_files(root, video_capture,
+                                       command= lambda: browse_files(root, video_capture, output_feed,
                                                              video_display, output_display, 
                                                              button_display))
     
@@ -171,6 +171,7 @@ if __name__ == '__main__':
 
     output_feed.load_yolo_model()
     output_feed.load_simple_model()
+    output_feed.load_videopose()
     
     root.mainloop()
     video_capture.destroy_window()
