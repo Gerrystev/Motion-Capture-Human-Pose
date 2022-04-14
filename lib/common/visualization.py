@@ -11,6 +11,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 import subprocess as sp
+import multiprocessing as mp
 import io
 
 import multiprocessing as mp
@@ -61,7 +62,7 @@ def downsample_tensor(X, factor):
     return np.mean(X[:length].reshape(-1, factor, *X.shape[1:]), axis=1)
 
 class Grid3D:
-    def __init__(self, skeleton, azim, viewport):
+    def __init__(self, skeleton, azim, viewport, anim_queue, skel_queue):
         plt.ioff()
         self.fig = plt.figure(figsize=(viewport[0] / 100, viewport[1] / 100))
 
@@ -91,47 +92,59 @@ class Grid3D:
         self.parents = skeleton.parents()
         self.skeleton = skeleton
 
-    def update_video(self, poses):
-        self.poses = list(poses.values())
+        self.anim_queue = anim_queue
+        self.skel_queue = skel_queue
 
-        for index, (title, data) in enumerate(poses.items()):
-            self.trajectories.append(data[:, 0, [0, 1]])
+        self.process = None
 
-        for n, ax in enumerate(self.ax_3d):
-            ax.set_xlim3d([-self.radius / 2 + self.trajectories[n][0, 0], self.radius / 2 + self.trajectories[n][0, 0]])
-            ax.set_ylim3d([-self.radius / 2 + self.trajectories[n][0, 1], self.radius / 2 + self.trajectories[n][0, 1]])
+    def start_process(self):
+        self.process = mp.Process(target=self.update_video)
+        self.process.start()
 
-        if not self.initialized:
-            for j, j_parent in enumerate(self.parents):
-                if j_parent == -1:
-                    continue
+    def update_video(self):
+        while True:
+            poses = self.skel_queue.get()
+            self.poses = list(poses.values())
 
-                col = 'red' if j in self.skeleton.joints_right() else 'black'
-                for n, ax in enumerate(self.ax_3d):
-                    pos = self.poses[n][0]
-                    self.lines_3d[n].append(ax.plot([pos[j, 0], pos[j_parent, 0]],
-                                               [pos[j, 1], pos[j_parent, 1]],
-                                               [pos[j, 2], pos[j_parent, 2]], zdir='z', c=col))
+            for index, (title, data) in enumerate(poses.items()):
+                self.trajectories = [data[:, 0, [0, 1]]]
 
-            self.initialized = True
-        else:
-            for j, j_parent in enumerate(self.parents):
-                if j_parent == -1:
-                    continue
+            for n, ax in enumerate(self.ax_3d):
+                self.ax.set_xlim3d([-self.radius / 2 + self.trajectories[n][0, 0], self.radius / 2 + self.trajectories[n][0, 0]])
+                self.ax.set_ylim3d([-self.radius / 2 + self.trajectories[n][0, 1], self.radius / 2 + self.trajectories[n][0, 1]])
 
-                for n, ax in enumerate(self.ax_3d):
-                    pos = self.poses[n][0]
-                    self.lines_3d[n][j - 1][0].set_xdata(np.array([pos[j, 0], pos[j_parent, 0]]))
-                    self.lines_3d[n][j - 1][0].set_ydata(np.array([pos[j, 1], pos[j_parent, 1]]))
-                    self.lines_3d[n][j - 1][0].set_3d_properties(np.array([pos[j, 2], pos[j_parent, 2]]), zdir='z')
+            if not self.initialized:
+                for j, j_parent in enumerate(self.parents):
+                    if j_parent == -1:
+                        continue
 
-        # return plot numpy array
-        with io.BytesIO() as buff:
-            ax.figure.savefig(buff, format='raw')
-            buff.seek(0)
-            data = np.frombuffer(buff.getvalue(), dtype=np.uint8)
-        w, h = ax.figure.canvas.get_width_height()
-        return data.reshape((int(h), int(w), -1))
+                    col = 'red' if j in self.skeleton.joints_right() else 'black'
+                    for n, ax in enumerate(self.ax_3d):
+                        pos = self.poses[n][0]
+                        self.lines_3d[n].append(ax.plot([pos[j, 0], pos[j_parent, 0]],
+                                                   [pos[j, 1], pos[j_parent, 1]],
+                                                   [pos[j, 2], pos[j_parent, 2]], zdir='z', c=col))
+
+                self.initialized = True
+            else:
+                for j, j_parent in enumerate(self.parents):
+                    if j_parent == -1:
+                        continue
+
+                    for n, ax in enumerate(self.ax_3d):
+                        pos = self.poses[n][0]
+                        self.lines_3d[n][j - 1][0].set_xdata(np.array([pos[j, 0], pos[j_parent, 0]]))
+                        self.lines_3d[n][j - 1][0].set_ydata(np.array([pos[j, 1], pos[j_parent, 1]]))
+                        self.lines_3d[n][j - 1][0].set_3d_properties(np.array([pos[j, 2], pos[j_parent, 2]]), zdir='z')
+
+            # return plot numpy array
+            with io.BytesIO() as buff:
+                self.ax.figure.savefig(buff, format='raw')
+                buff.seek(0)
+                data = np.frombuffer(buff.getvalue(), dtype=np.uint8)
+            w, h = self.ax.figure.canvas.get_width_height()
+
+            self.anim_queue.put(data.reshape((int(h), int(w), -1)))
 
     def get_figure_numpy(self):
         # return plot numpy array

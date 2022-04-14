@@ -145,6 +145,9 @@ config.HUMANEVA_KEYPOINTS = np.array([
     'head'
 ])
 
+# config live demo
+config.IS_LIVESTREAM = False
+
 def _update_dict(k, v):
     if k == 'DATASET':
         if 'MEAN' in v and v['MEAN']:

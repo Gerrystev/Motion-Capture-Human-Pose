@@ -57,6 +57,8 @@ class OutputFeed:
         
         self.v_queue = v_queue
         self.o_frame = o_frame
+        self.anim_queue = multiprocessing.Queue()
+        self.skel_queue = multiprocessing.Queue()
 
         self.frame_processed = 0
 
@@ -70,8 +72,10 @@ class OutputFeed:
         # grid 3D properties
         azimuth = np.array(0., dtype='float32')
         viewport = (640, 360)
-        self.grid_3d = Grid3D(humaneva_skeleton, azimuth, viewport)
+        self.grid_3d = Grid3D(humaneva_skeleton, azimuth, viewport, self.anim_queue, self.skel_queue)
         self.first_frame = self.grid_3d.get_figure_numpy()
+
+        self.started = False
 
     def _box2cs(self, box, image_width, image_height):
         x = box[0] * image_width
@@ -113,13 +117,11 @@ class OutputFeed:
             start = time.time()
             boxes = do_detect(self.yolo_model, sized, 0.4, 0.6, use_cuda)
             finish = time.time()
-            if i == 1:
-                print('Image: Predicted in %f seconds.' % ((finish - start)))
+            # if i == 1:
+            #     print('Image: Predicted in %f seconds.' % ((finish - start)))
 
         return boxes[0]
 
-
-        
     def start(self):
         self.process_frame()
         
@@ -150,9 +152,21 @@ class OutputFeed:
         # prediction = camera_to_world(prediction, R=rot, t=0)
 
         anim_output = {'Reconstruction': prediction}
+        self.skel_queue.put(anim_output)
 
-        return self.grid_3d.update_video(anim_output)
-        
+        if not self.started:
+            self.started = True
+            self.grid_3d.start_process()
+
+        if not self.anim_queue.empty():
+            return self.anim_queue.get()
+
+        if self.o_frame is None:
+            return self.first_frame
+
+        return self.o_frame
+
+
     def process_frame(self):
         # Human estimation
         if not self.v_queue.empty():
@@ -198,6 +212,12 @@ class OutputFeed:
                     #     self.preds_2d = np.concatenate((self.preds_2d, preds))
 
                     self.preds_2d = np.copy(preds)
+
+                    # uncomment this to debug 2D
+                    image = img.copy()
+                    for mat in preds[0]:
+                        x, y = int(mat[0]), int(mat[1])
+                        cv2.circle(image, (x, y), 2, (255, 0, 0), 2)
 
                     if self.preds_2d.shape[0] >= self.receptive_field:
                         # if array of 2d pred is fullfilled receptive field criteria

@@ -31,19 +31,22 @@ def update_video(fps_queue, image_label, fps_label, queue):
        root.update()
 
 def update_output(next_fps, image_label, fps_label, next_frame):
-   width, height = 640, 360
-   fps = next_fps
-   frame = np.copy(next_frame)
-   frame = cv2.resize(frame, (width, height))
-   frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-   img = PIL.Image.fromarray(frame)
-   imgtk = PIL.ImageTk.PhotoImage(image=img)
-   image_label.configure(image=imgtk)
-   image_label._image_cache = imgtk  # avoid garbage collection
+   try:
+       width, height = 640, 360
+       fps = next_fps
+       frame = np.copy(next_frame)
+       frame = cv2.resize(frame, (width, height))
+       frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+       img = PIL.Image.fromarray(frame)
+       imgtk = PIL.ImageTk.PhotoImage(image=img)
+       image_label.configure(image=imgtk)
+       image_label._image_cache = imgtk  # avoid garbage collection
 
-   # put fps into label
-   fps_label.configure(text=str(fps) + " FPS")
-   root.update()
+       # put fps into label
+       fps_label.configure(text=str(fps) + " FPS")
+       root.update()
+   except:
+       print('error updating feed')
 
 def update_all(root, video_capture, output_feed, v_label, o_label, v_fps, v_fps_label,
                o_fps_label, v_queue, timeout_time=-1):
@@ -73,7 +76,7 @@ def show_thumbnail(root, first_image, image_label):
    
 def browse_files(root, video_capture, output_feed, video_display,
                  output_display, button_display):
-    filename = filedialog.askopenfilename(filetypes = ( ("video files","*.mp4, *.avi"), ) )
+    filename = filedialog.askopenfilename(filetypes = ( ("video files","*.*"), ) )
     
     # initialize videocapture with selected file
     video_capture.set_videocapture(filename)
