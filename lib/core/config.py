@@ -145,6 +145,26 @@ config.HUMANEVA_KEYPOINTS = np.array([
     'head'
 ])
 
+# mpii keypoint index
+config.MPII_KEYPOINTS = np.array([
+    'rank',
+    'rkne',
+    'rhip',
+    'lhip',
+    'lkne',
+    'lank',
+    'pelvis',
+    'thorax',
+    'unec',
+    'head',
+    'rwri',
+    'relb',
+    'rsho',
+    'lsho',
+    'lelb',
+    'lwri'
+])
+
 # config live demo
 config.IS_LIVESTREAM = False
 

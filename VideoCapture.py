@@ -22,13 +22,14 @@ class VideoCapture:
         self.cap = None
         self.currentFrame = None
         
-        self.process = multiprocessing.Process(target=self.video_capture)
+        self.process = None
         
         # queue for processing image
         self.queue = queue
         self.running = False
         
     def start(self):
+        self.process = multiprocessing.Process(target=self.video_capture)
         self.process.start()
         
     def join(self):

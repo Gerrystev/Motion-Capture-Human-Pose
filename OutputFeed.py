@@ -34,6 +34,42 @@ from common.camera import normalize_screen_coordinates
 
 from common.visualization import Grid3D
 
+# keypoints index
+# humaneva index
+hhead = np.where(config.HUMANEVA_KEYPOINTS == 'head')[0][0]
+hpelv = np.where(config.HUMANEVA_KEYPOINTS == 'pelvis')[0][0]
+hthor = np.where(config.HUMANEVA_KEYPOINTS == 'thorax')[0][0]
+hlsho = np.where(config.HUMANEVA_KEYPOINTS == 'lsho')[0][0]
+hlelb = np.where(config.HUMANEVA_KEYPOINTS == 'lelb')[0][0]
+hlwri = np.where(config.HUMANEVA_KEYPOINTS == 'lwri')[0][0]
+hlhip = np.where(config.HUMANEVA_KEYPOINTS == 'lhip')[0][0]
+hlkne = np.where(config.HUMANEVA_KEYPOINTS == 'lkne')[0][0]
+hlank = np.where(config.HUMANEVA_KEYPOINTS == 'lank')[0][0]
+
+hrsho = np.where(config.HUMANEVA_KEYPOINTS == 'rsho')[0][0]
+hrelb = np.where(config.HUMANEVA_KEYPOINTS == 'relb')[0][0]
+hrwri = np.where(config.HUMANEVA_KEYPOINTS == 'rwri')[0][0]
+hrkne = np.where(config.HUMANEVA_KEYPOINTS == 'rkne')[0][0]
+hrank = np.where(config.HUMANEVA_KEYPOINTS == 'rank')[0][0]
+hrhip = np.where(config.HUMANEVA_KEYPOINTS == 'rhip')[0][0]
+
+# mpii index
+head = np.where(config.MPII_KEYPOINTS == 'head')[0][0]
+pelv = np.where(config.MPII_KEYPOINTS == 'pelvis')[0][0]
+thor = np.where(config.MPII_KEYPOINTS == 'thorax')[0][0]
+lsho = np.where(config.MPII_KEYPOINTS == 'lsho')[0][0]
+lelb = np.where(config.MPII_KEYPOINTS == 'lelb')[0][0]
+lwri = np.where(config.MPII_KEYPOINTS == 'lwri')[0][0]
+lhip = np.where(config.MPII_KEYPOINTS == 'lhip')[0][0]
+lkne = np.where(config.MPII_KEYPOINTS == 'lkne')[0][0]
+lank = np.where(config.MPII_KEYPOINTS == 'lank')[0][0]
+
+rsho = np.where(config.MPII_KEYPOINTS == 'rsho')[0][0]
+relb = np.where(config.MPII_KEYPOINTS == 'relb')[0][0]
+rwri = np.where(config.MPII_KEYPOINTS == 'rwri')[0][0]
+rkne = np.where(config.MPII_KEYPOINTS == 'rkne')[0][0]
+rank = np.where(config.MPII_KEYPOINTS == 'rank')[0][0]
+rhip = np.where(config.MPII_KEYPOINTS == 'rhip')[0][0]
 
 class OutputFeed:
     def __init__(self, v_queue, o_frame):
@@ -166,6 +202,26 @@ class OutputFeed:
 
         return self.o_frame
 
+    def swap_keypoints(self, preds):
+        new_preds = preds[:, :15, :].copy()
+        new_preds[0][hhead] = preds[0][head]
+        new_preds[0][hpelv] = preds[0][pelv]
+        new_preds[0][hthor] = preds[0][thor]
+        new_preds[0][hlsho] = preds[0][lsho]
+        new_preds[0][hlelb] = preds[0][lelb]
+        new_preds[0][hlwri] = preds[0][lwri]
+        new_preds[0][hlhip] = preds[0][lhip]
+        new_preds[0][hlkne] = preds[0][lkne]
+        new_preds[0][hlank] = preds[0][lank]
+        new_preds[0][hrsho] = preds[0][rsho]
+        new_preds[0][hrelb] = preds[0][relb]
+        new_preds[0][hrwri] = preds[0][rwri]
+        new_preds[0][hrkne] = preds[0][rkne]
+        new_preds[0][hrank] = preds[0][rank]
+        new_preds[0][hrhip] = preds[0][rhip]
+
+        return new_preds
+
 
     def process_frame(self):
         # Human estimation
@@ -206,10 +262,14 @@ class OutputFeed:
                     preds, maxvals = get_final_preds(
                         config, output.clone().cpu().numpy(), np.asarray([cen]), np.asarray([s]))
 
-                    # if self.preds_2d is None:
-                    #     self.preds_2d = np.copy(preds)
-                    # else:
-                    #     self.preds_2d = np.concatenate((self.preds_2d, preds))
+                    # switch joint mpii index with humaneva index
+                    # (1, 16, 2) => (1, 15, 2)
+                    preds = self.swap_keypoints(preds)
+
+                    if self.preds_2d is None:
+                        self.preds_2d = np.copy(preds)
+                    else:
+                        self.preds_2d = np.concatenate((self.preds_2d, preds))
 
                     self.preds_2d = np.copy(preds)
 
@@ -274,8 +334,8 @@ class OutputFeed:
 
     def load_simple_model(self):
         # load efficientnet simple baseline weights
-        cfgfile = './simple_baseline_cfg/efficientnet/256x256_d256x3_adam_lr1e-3.yaml'
-        weightfile = './models/efficientnet_simple_baseline/efficientnet_simple_baseline_15.pth.tar'
+        cfgfile = './simple_baseline_cfg/efficientnet/256x256_d256x3_adam_lr1e-3_k16.yaml'
+        weightfile = './models/efficientnet_simple_baseline/efficientnet_simple_baseline_16.pth.tar'
         update_config(cfgfile)
 
         # cudnn related setting
@@ -338,4 +398,4 @@ class OutputFeed:
                 self.calculate_fps()
         
     def destroy_window(self):
-        self.process.terminate()
+        self.grid_3d.process.terminate()

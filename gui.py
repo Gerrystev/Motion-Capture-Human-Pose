@@ -57,7 +57,9 @@ def update_all(root, video_capture, output_feed, v_label, o_label, v_fps, v_fps_
        timeout_time = time.time()
    else:
        if time.time() - timeout_time >= 3 and timeout_time != -1:
-           # if timeout 3s disconnect
+           # if timeout 3s disconnect and terminate multiprocess
+           video_capture.destroy_window()
+           output_feed.destroy_window()
            return
 
    root.after(0, func=lambda: update_all(root, video_capture, output_feed, v_label, o_label, v_fps, v_fps_label,
@@ -178,5 +180,6 @@ if __name__ == '__main__':
     
     root.mainloop()
     video_capture.destroy_window()
+    output_feed.destroy_window()
     cv2.destroyAllWindows()
 
