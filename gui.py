@@ -1,10 +1,10 @@
 import tkinter as tk
-
 import cv2
+import time
 import numpy as np
 import PIL.Image
 import PIL.ImageTk
-
+import torch.multiprocessing as multiprocessing
 from tkinter import *
 from tkinter import ttk
 from tkinter import simpledialog
@@ -13,31 +13,59 @@ from tkinter import filedialog
 from VideoCapture import VideoCapture
 from OutputFeed import OutputFeed
 
-def update_video(next_fps, image_label, fps_label, next_frame):
-   width, height = 640, 360
-   fps = next_fps
-   frame = np.copy(next_frame)
-   frame = cv2.resize(frame, (width, height))
-   frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-   img = PIL.Image.fromarray(frame)
-   imgtk = PIL.ImageTk.PhotoImage(image=img)
-   image_label.configure(image=imgtk)
-   image_label._image_cache = imgtk  # avoid garbage collection
+def update_video(fps_queue, image_label, fps_label, queue):
+   width, height = 640, 360 
+   if not queue.empty(): 
+       # fps = fps_queue.get()
+       fps = 0
+       frame = np.copy(queue.get())
+       frame = cv2.resize(frame, (width, height))
+       frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+       img = PIL.Image.fromarray(frame)
+       imgtk = PIL.ImageTk.PhotoImage(image=img)
+       image_label.configure(image=imgtk)
+       image_label._image_cache = imgtk  # avoid garbage collection
+   
+       # put fps into label
+       fps_label.configure(text=str(fps) + " FPS")
+       root.update()
 
-   # put fps into label
-   fps_label.configure(text=str(fps) + " FPS")
-   root.update()
+def update_output(next_fps, image_label, fps_label, next_frame):
+   try:
+       width, height = 640, 360
+       fps = next_fps
+       frame = np.copy(next_frame)
+       frame = cv2.resize(frame, (width, height))
+       frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+       img = PIL.Image.fromarray(frame)
+       imgtk = PIL.ImageTk.PhotoImage(image=img)
+       image_label.configure(image=imgtk)
+       image_label._image_cache = imgtk  # avoid garbage collection
 
-def update_all(v_label, o_label, v_fps, o_fps, v_fps_label,
-               o_fps_label, v_frame, o_frame):
-   update_video(v_fps, v_label, v_fps_label, v_frame)
-   update_video(o_fps, o_label, o_fps_label, o_frame)
+       # put fps into label
+       fps_label.configure(text=str(fps) + " FPS")
+       root.update()
+   except:
+       print('error updating feed')
+
+def update_all(root, video_capture, output_feed, v_label, o_label, v_fps, v_fps_label,
+               o_fps_label, v_queue, timeout_time=-1):
+   if not v_queue.empty():
+       update_video(v_fps, v_label, v_fps_label, v_queue)
+       output_feed.process_frame()
+       update_output(output_feed.fps, o_label, o_fps_label, output_feed.o_frame)
+       timeout_time = time.time()
+   else:
+       if time.time() - timeout_time >= 3 and timeout_time != -1:
+           # if timeout 3s disconnect
+           return
+
+   root.after(0, func=lambda: update_all(root, video_capture, output_feed, v_label, o_label, v_fps, v_fps_label,
+           o_fps_label, v_queue, timeout_time))
    
 def show_thumbnail(root, first_image, image_label):
     width, height = 640, 360 
-    first_image = np.copy(first_image)
-    first_image = cv2.cvtColor(first_image, cv2.COLOR_BGR2RGBA)
-    # first_image = cv2.flip(first_image, 1)
+    first_image = cv2.cvtColor(first_image, cv2.COLOR_BGR2RGB)
     first_image = cv2.resize(first_image, (width, height))
     img = PIL.Image.fromarray(first_image)
     imgtk = PIL.ImageTk.PhotoImage(image=img)
@@ -46,19 +74,18 @@ def show_thumbnail(root, first_image, image_label):
     
     root.update()
    
-def browse_files(root, video_capture, video_display,
+def browse_files(root, video_capture, output_feed, video_display,
                  output_display, button_display):
-    filename = filedialog.askopenfilename(filetypes = ( ("video files","*.mp4, *.avi"), ) )
+    filename = filedialog.askopenfilename(filetypes = ( ("video files","*.*"), ) )
     
     # initialize videocapture with selected file
     video_capture.set_videocapture(filename)
     
     show_thumbnail(root, video_capture.first_frame, video_display)
-    show_thumbnail(root, video_capture.first_frame, output_display)
+    show_thumbnail(root, output_feed.first_frame, output_display)
     button_display['state'] = "normal"
-    
 
-def show_dialog(root, video_capture, video_display,
+def show_dialog(root, video_capture, output_feed, video_display,
                 output_display, button_display):
     ip_address = simpledialog.askstring("Input", "Input the ip address of camera",
                                 parent=root)
@@ -67,22 +94,17 @@ def show_dialog(root, video_capture, video_display,
     video_capture.set_videocapture(ip_address, True)
     
     show_thumbnail(root, video_capture.first_frame, video_display)
-    show_thumbnail(root, video_capture.first_frame, output_display)
+    show_thumbnail(root, output_feed.first_frame, output_display)
     button_display['state'] = "normal"
     
-def start_capture(root, video_display, output_display, video_capture,
-                  output_feed, video_fps_display, output_fps_display):
+def start_capture(root, video_display, output_display, video_capture, 
+                  output_feed, video_fps_display, output_fps_display, v_queue):
 
-    is_cap = video_capture.start()
+    video_capture.start()
 
-    if is_cap:
-        update_all(video_display, output_display,
-                   video_capture.fps, output_feed.fps,
-                   video_fps_display, output_fps_display, video_capture.v_frame, output_feed.o_frame)
-
-        root.after(0, func=lambda: start_capture(root, video_display, output_display, video_capture,
-                      output_feed, video_fps_display, output_fps_display))
-
+    update_all(root, video_capture, output_feed, video_display, output_display,
+               video_capture.fps,
+               video_fps_display, output_fps_display, v_queue)
 
 if __name__ == '__main__':
     root = Tk()
@@ -105,28 +127,27 @@ if __name__ == '__main__':
     
     # video type button
     # initalize queue for multiprocessing
-    v_frame = None
-    o_frame = None
-
-    output_feed = OutputFeed(o_frame)
-    video_capture = VideoCapture(v_frame, output_feed)
+    v_queue = multiprocessing.Queue()
+    o_frame = np.zeros((360, 640, 3), dtype=np.int8)        # init as black screen
+    
+    video_capture = VideoCapture(v_queue)
+    output_feed = OutputFeed(v_queue, o_frame)
     
     livestream_button_display = ttk.Button(root, text="Livestream Video", width=200,
-                                command= lambda: show_dialog(root, video_capture,
+                                command= lambda: show_dialog(root, video_capture, output_feed,
                                                              video_display, output_display,
                                                              button_display))
     video_button_display = ttk.Button(root, text="Choose video file", width=200,
-                                       command= lambda: browse_files(root, video_capture,
+                                       command= lambda: browse_files(root, video_capture, output_feed,
                                                              video_display, output_display, 
                                                              button_display))
     
     # start record button
     button_display = ttk.Button(root, text="Start Record", width=200, state=tk.DISABLED,
                                 command= lambda: start_capture(
-                                       root,
-                                       video_display, output_display,
+                                       root, video_display, output_display, 
                                        video_capture, output_feed, video_fps_display, 
-                                       output_fps_display))
+                                       output_fps_display, v_queue))
     
     # display everything to grid
     title_display.grid(row=0, column=0, columnspan=2, pady=10, stick="nsew")
@@ -153,7 +174,9 @@ if __name__ == '__main__':
 
     output_feed.load_yolo_model()
     output_feed.load_simple_model()
+    output_feed.load_videopose()
     
     root.mainloop()
+    video_capture.destroy_window()
     cv2.destroyAllWindows()
 
