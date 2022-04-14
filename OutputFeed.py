@@ -106,10 +106,22 @@ class OutputFeed:
         self.receptive_field = 1        # n frame used as receptive field
 
         # grid 3D properties
-        azimuth = np.array(0., dtype='float32')
-        viewport = (640, 360)
-        self.grid_3d = Grid3D(humaneva_skeleton, azimuth, viewport, self.anim_queue, self.skel_queue)
+        self.azimuth = np.array(0., dtype='float32')
+        self.viewport = (640, 360)
+        self.grid_3d = Grid3D(humaneva_skeleton, self.azimuth, self.viewport, self.anim_queue, self.skel_queue)
         self.first_frame = self.grid_3d.get_figure_numpy()
+
+        self.started = False
+
+    def reset_output(self):
+        self.anim_queue = multiprocessing.Queue()
+        self.skel_queue = multiprocessing.Queue()
+
+        del self.grid_3d
+        self.grid_3d = Grid3D(humaneva_skeleton, self.azimuth, self.viewport, self.anim_queue, self.skel_queue)
+        self.first_frame = self.grid_3d.get_figure_numpy()
+
+        self.preds_2d = None
 
         self.started = False
 
@@ -398,4 +410,8 @@ class OutputFeed:
                 self.calculate_fps()
         
     def destroy_window(self):
-        self.grid_3d.process.terminate()
+        try:
+            self.grid_3d.stop_process()
+            self.reset_output()
+        except:
+            print('output process finished')

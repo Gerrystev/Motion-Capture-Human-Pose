@@ -71,6 +71,8 @@ class Grid3D:
         self.trajectories = []
         self.radius = 1.7
 
+        self.azim = azim
+
         self.ax = self.fig.add_subplot(1, 1, 1, projection='3d')
         self.ax.view_init(elev=15., azim=azim)
         self.ax.set_xlim3d([-self.radius / 2, self.radius / 2])
@@ -95,11 +97,13 @@ class Grid3D:
         self.anim_queue = anim_queue
         self.skel_queue = skel_queue
 
-        self.process = None
+        self.process = mp.Process(target=self.update_video)
 
     def start_process(self):
-        self.process = mp.Process(target=self.update_video)
         self.process.start()
+
+    def stop_process(self):
+        self.process.terminate()
 
     def update_video(self):
         while True:

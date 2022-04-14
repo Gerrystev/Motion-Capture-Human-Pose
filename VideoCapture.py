@@ -22,14 +22,13 @@ class VideoCapture:
         self.cap = None
         self.currentFrame = None
         
-        self.process = None
+        self.process = multiprocessing.Process(target=self.video_capture)
         
         # queue for processing image
         self.queue = queue
         self.running = False
         
     def start(self):
-        self.process = multiprocessing.Process(target=self.video_capture)
         self.process.start()
         
     def join(self):
@@ -73,9 +72,17 @@ class VideoCapture:
                 # frame = cv2.resize(frame, (width, height))
                 if config.IS_LIVESTREAM:
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                config.IS_RUNNING = True
                 self.queue.put(frame)
                 # self.calculate_fps()
+            else:
+                config.IS_RUNNING = False
+                break
             self.running = ret
         
     def destroy_window(self):
-        self.process.terminate()
+        try:
+            self.process.terminate()
+            self.process = multiprocessing.Process(target=self.video_capture)
+        except:
+            print('video process finished')
