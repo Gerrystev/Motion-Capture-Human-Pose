@@ -17,6 +17,9 @@ def normalize_screen_coordinates(X, w, h):
     # Normalize so that [0, w] is mapped to [-1, 1], while preserving the aspect ratio
     return X/w*2 - [1, h/w]
 
+def reset_screen_coordinate(X, w, h):
+    # reset normalized coordinate 3D back to real coord
+    return (X + [1, h / w, h / w])/2*w
     
 def image_coordinates(X, w, h):
     assert X.shape[-1] == 2

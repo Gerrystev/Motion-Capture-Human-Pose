@@ -168,6 +168,7 @@ config.MPII_KEYPOINTS = np.array([
 # config live demo
 config.IS_LIVESTREAM = False
 config.IS_RUNNING = False
+config.SAVE_TXT = False
 
 def _update_dict(k, v):
     if k == 'DATASET':

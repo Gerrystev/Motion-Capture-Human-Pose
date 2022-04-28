@@ -51,7 +51,8 @@ class VideoCapture:
             self.first_frame = np.zeros((480, 640, 3), dtype=np.uint8)
         else:
             if is_livestream:
-                video_link = "rtsp://" + video_link + "/h264_ulaw.sdp"
+                # video_link = "rtsp://" + video_link + "/h264_ulaw.sdp"
+                video_link = "http://" + video_link + "/mjpegfeed"
                 self.first_frame = np.zeros((480, 640, 3), dtype=np.uint8)
 
             else:

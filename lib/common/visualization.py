@@ -4,6 +4,7 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 #
+import time
 
 import matplotlib
 matplotlib.use('Agg')
@@ -15,6 +16,9 @@ import multiprocessing as mp
 import io
 
 import multiprocessing as mp
+
+import _init_paths
+from core.config import config
 
 def get_resolution(filename):
     command = ['ffprobe', '-v', 'error', '-select_streams', 'v:0',

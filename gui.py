@@ -13,13 +13,16 @@ from tkinter import filedialog
 from VideoCapture import VideoCapture
 from OutputFeed import OutputFeed
 
+import _init_paths
+from core.config import config
+
 def update_video(fps_queue, image_label, fps_label, queue):
-   width, height = 640, 360 
+   width, height = 640, 360
    if not queue.empty(): 
        # fps = fps_queue.get()
        fps = 0
-       frame = np.copy(queue.get())
-       frame = cv2.resize(frame, (width, height))
+       frame1 = np.copy(queue.get())
+       frame = cv2.resize(frame1, (width, height))
        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
        img = PIL.Image.fromarray(frame)
        imgtk = PIL.ImageTk.PhotoImage(image=img)
@@ -28,6 +31,10 @@ def update_video(fps_queue, image_label, fps_label, queue):
    
        # put fps into label
        fps_label.configure(text=str(fps) + " FPS")
+
+       # if config.IS_LIVESTREAM:
+       #     queue.put(np.copy(frame1))
+
        root.update()
 
 def update_output(next_fps, image_label, fps_label, next_frame):
@@ -56,9 +63,11 @@ def update_all(root, video_capture, output_feed, v_label, o_label, v_fps, v_fps_
        update_output(output_feed.fps, o_label, o_fps_label, output_feed.o_frame)
        timeout_time = time.time()
    else:
-       if time.time() - timeout_time >= 3 and timeout_time != -1:
+       if time.time() - timeout_time >= 5 and timeout_time != -1:
            # if timeout 3s disconnect and terminate multiprocess
            video_capture.destroy_window()
+           if config.SAVE_TXT:
+               output_feed.write_coord_txt()
            output_feed.destroy_window()
            return
 
@@ -121,11 +130,14 @@ if __name__ == '__main__':
     video_fps_display = Label(text="0 FPS", font=("Tahoma", 12))
     output_fps_display = Label(text="0 FPS", font=("Tahoma", 12))    
     video_type_label_display = Label(text="Video Type", font=("Tahoma", 20))
-    
+
+    def text_checked():
+        config.SAVE_TXT = is_save_txt.get()
+
     # check button
-    save_fbx = False
-    check_button_display = ttk.Checkbutton(root, text='Save to .fbx', variable=save_fbx,
-     	    onvalue=True, offvalue=False)
+    is_save_txt = BooleanVar()
+    check_button_display = ttk.Checkbutton(root, text='Save coordinate to .json', variable=is_save_txt,
+     	    onvalue=True, offvalue=False, command=text_checked)
     
     # video type button
     # initalize queue for multiprocessing

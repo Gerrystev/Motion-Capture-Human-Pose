@@ -24,13 +24,15 @@ import models
 import torch
 import cv2
 import numpy as np
+import json
+import codecs
 
 from common.generators import UnchunkedGenerator
 from common.model import TemporalModel
 from common.humaneva_dataset import humaneva_skeleton
 from common.custom_dataset import custom_camera_params
 from common.camera import camera_to_world
-from common.camera import normalize_screen_coordinates
+from common.camera import normalize_screen_coordinates, reset_screen_coordinate
 
 from common.visualization import Grid3D
 
@@ -110,6 +112,25 @@ class OutputFeed:
         self.viewport = (640, 360)
         self.grid_3d = Grid3D(humaneva_skeleton, self.azimuth, self.viewport, self.anim_queue, self.skel_queue)
         self.first_frame = self.grid_3d.get_figure_numpy()
+
+        self.filename = 'output/{}_3d_coord.json'.format(str(int(time.time())))
+        self.joint_sequence = {
+            'head': [],
+            'pelv': [],
+            'thor': [],
+            'lsho': [],
+            'lelb': [],
+            'lwri': [],
+            'lhip': [],
+            'lkne': [],
+            'lank': [],
+            'rsho': [],
+            'relb': [],
+            'rwri': [],
+            'rkne': [],
+            'rank': [],
+            'rhip': [],
+        }
 
         self.started = False
 
@@ -214,6 +235,23 @@ class OutputFeed:
 
         return self.o_frame
 
+    def append_coord_dict(self, coord_3d):
+        self.joint_sequence['head'].append(coord_3d[hhead].tolist())
+        self.joint_sequence['pelv'].append(coord_3d[hpelv].tolist())
+        self.joint_sequence['thor'].append(coord_3d[hthor].tolist())
+        self.joint_sequence['lsho'].append(coord_3d[hlsho].tolist())
+        self.joint_sequence['lelb'].append(coord_3d[hlelb].tolist())
+        self.joint_sequence['lwri'].append(coord_3d[hlwri].tolist())
+        self.joint_sequence['lhip'].append(coord_3d[hlhip].tolist())
+        self.joint_sequence['lkne'].append(coord_3d[hlkne].tolist())
+        self.joint_sequence['lank'].append(coord_3d[hlank].tolist())
+        self.joint_sequence['rsho'].append(coord_3d[hrsho].tolist())
+        self.joint_sequence['relb'].append(coord_3d[hrelb].tolist())
+        self.joint_sequence['rwri'].append(coord_3d[hrwri].tolist())
+        self.joint_sequence['rkne'].append(coord_3d[hrkne].tolist())
+        self.joint_sequence['rank'].append(coord_3d[hrank].tolist())
+        self.joint_sequence['rhip'].append(coord_3d[hrhip].tolist())
+
     def swap_keypoints(self, preds):
         new_preds = preds[:, :15, :].copy()
         new_preds[0][hhead] = preds[0][head]
@@ -244,7 +282,7 @@ class OutputFeed:
             bbox = self.detect_bbox(img)
 
             # 2d estimation
-            if len(bbox) > 0:
+            if len(bbox) == 1:
                 # if person is detected
                 cen, s = self._box2cs(bbox[0], img.shape[1], img.shape[0])
                 r = 0
@@ -306,7 +344,7 @@ class OutputFeed:
                         kps_left, kps_right = list(keypoints_symmetry[0]), list(keypoints_symmetry[1])
                         gen = UnchunkedGenerator(None, None, [kps],
                                                  pad=pad, causal_shift=causal,
-                                                 augment=True,
+                                                 augment=False,
                                                  kps_left=kps_left, kps_right=kps_right, joints_left=kps_left,
                                                  joints_right=kps_right)
 
@@ -318,12 +356,16 @@ class OutputFeed:
                                 predicted_3d_pos = self.videopose_model(inputs_2d)
 
                                 # Undo flipping and take average with non-flipped version
-                                predicted_3d_pos[1, :, :, 0] *= -1
-                                predicted_3d_pos[1, :, kps_left + kps_right] = predicted_3d_pos[1, :,
+                                predicted_3d_pos[0, :, :, 0] *= -1
+                                predicted_3d_pos[0, :, kps_left + kps_right] = predicted_3d_pos[0, :,
                                                                                      kps_right + kps_left]
                                 predicted_3d_pos = torch.mean(predicted_3d_pos, dim=0, keepdim=True)
 
                                 predicted_3d_pos = predicted_3d_pos.squeeze(0).cpu().numpy()
+
+                                if config.SAVE_TXT:
+                                    pred_3d_coord = reset_screen_coordinate(predicted_3d_pos[0], w=w, h=h)
+                                    self.append_coord_dict(pred_3d_coord)
 
                                 # start 3D visualization
                                 self.o_frame = self.animate_3d(predicted_3d_pos)
@@ -331,8 +373,6 @@ class OutputFeed:
                                 self.frame_processed += 1
 
                                 self.calculate_fps()
-            else:
-                self.o_frame = img
 
     def load_yolo_model(self):
         cfgfile = './yolov4_cfg/yolov4-tiny.cfg'
@@ -397,6 +437,12 @@ class OutputFeed:
         self.receptive_field = model.receptive_field()
 
         self.videopose_model = model
+
+    def write_coord_txt(self):
+        json.dump(self.joint_sequence, codecs.open(self.filename, 'w', encoding='utf-8'),
+                  separators=(',', ':'),
+                  sort_keys=True,
+                  indent=4)
 
     def video_loop(self):
         # if waitingFrame is not empty render current object
