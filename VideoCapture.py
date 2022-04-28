@@ -85,5 +85,6 @@ class VideoCapture:
         try:
             self.process.terminate()
             self.process = multiprocessing.Process(target=self.video_capture)
+            self.cap.release()
         except:
             print('video process finished')

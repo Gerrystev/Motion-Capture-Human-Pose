@@ -16,6 +16,13 @@ from OutputFeed import OutputFeed
 import _init_paths
 from core.config import config
 
+def switch_state(b):
+    # switch state button
+    if b["state"] == NORMAL:
+        b["state"] = DISABLED
+    else:
+        b["state"] = NORMAL
+
 def update_video(fps_queue, image_label, fps_label, queue):
    width, height = 640, 360
    if not queue.empty(): 
@@ -56,7 +63,9 @@ def update_output(next_fps, image_label, fps_label, next_frame):
        print('error updating feed')
 
 def update_all(root, video_capture, output_feed, v_label, o_label, v_fps, v_fps_label,
-               o_fps_label, v_queue, timeout_time=-1):
+               o_fps_label, v_queue,
+               livestream_button, video_button, check_button, button_capture, button_stop,
+               timeout_time=-1,):
    if not v_queue.empty():
        update_video(v_fps, v_label, v_fps_label, v_queue)
        output_feed.process_frame()
@@ -64,15 +73,26 @@ def update_all(root, video_capture, output_feed, v_label, o_label, v_fps, v_fps_
        timeout_time = time.time()
    else:
        if time.time() - timeout_time >= 5 and timeout_time != -1:
+           config.IS_RUNNING = False
+
            # if timeout 3s disconnect and terminate multiprocess
            video_capture.destroy_window()
            if config.SAVE_TXT:
                output_feed.write_coord_txt()
            output_feed.destroy_window()
+
+           livestream_button["state"] = NORMAL
+           video_button["state"] = NORMAL
+           check_button["state"] = NORMAL
+
+           button_stop.grid_forget()
+           button_capture.grid(row=8, column=0, columnspan=2, pady=5)
+
            return
 
-   root.after(0, func=lambda: update_all(root, video_capture, output_feed, v_label, o_label, v_fps, v_fps_label,
-           o_fps_label, v_queue, timeout_time))
+   if config.IS_RUNNING:
+       root.after(0, func=lambda: update_all(root, video_capture, output_feed, v_label, o_label, v_fps, v_fps_label,
+               o_fps_label, v_queue, livestream_button, video_button, check_button, button_capture, button_stop, timeout_time))
    
 def show_thumbnail(root, first_image, image_label):
     width, height = 640, 360 
@@ -106,16 +126,7 @@ def show_dialog(root, video_capture, output_feed, video_display,
     
     show_thumbnail(root, video_capture.first_frame, video_display)
     show_thumbnail(root, output_feed.first_frame, output_display)
-    button_display['state'] = "normal"
-    
-def start_capture(root, video_display, output_display, video_capture, 
-                  output_feed, video_fps_display, output_fps_display, v_queue):
-
-    video_capture.start()
-
-    update_all(root, video_capture, output_feed, video_display, output_display,
-               video_capture.fps,
-               video_fps_display, output_fps_display, v_queue)
+    button_display['state'] = NORMAL
 
 if __name__ == '__main__':
     root = Tk()
@@ -155,13 +166,53 @@ if __name__ == '__main__':
                                        command= lambda: browse_files(root, video_capture, output_feed,
                                                              video_display, output_display, 
                                                              button_display))
-    
+
+    def start_capture(root, video_display, output_display, video_capture,
+                      output_feed, video_fps_display, output_fps_display, v_queue,
+                      livestream_button, video_button, check_button, button_capture, button_stop):
+        config.IS_RUNNING = True
+
+        livestream_button["state"] = DISABLED
+        video_button["state"] = DISABLED
+        check_button["state"] = DISABLED
+        button_capture.grid_forget()
+        button_stop.grid(row=8, column=0, columnspan=2, pady=5)
+
+        video_capture.start()
+
+        update_all(root, video_capture, output_feed, video_display, output_display,
+                   video_capture.fps,
+                   video_fps_display, output_fps_display, v_queue,
+                   livestream_button, video_button, check_button, button_capture, button_stop)
+
+
+    def stop_capture(video_capture, output_feed, livestream_button, video_button, check_button):
+        config.IS_RUNNING = False
+
+        video_capture.destroy_window()
+        if config.SAVE_TXT:
+            output_feed.write_coord_txt()
+        output_feed.destroy_window()
+
+        livestream_button["state"] = NORMAL
+        video_button["state"] = NORMAL
+        check_button["state"] = NORMAL
+        button_stop_display.grid_forget()
+        button_display.grid(row=8, column=0, columnspan=2, pady=5)
+
     # start record button
-    button_display = ttk.Button(root, text="Start Record", width=200, state=tk.DISABLED,
+    button_display = ttk.Button(root, text="Start Record", width=200, state=DISABLED,
                                 command= lambda: start_capture(
                                        root, video_display, output_display, 
                                        video_capture, output_feed, video_fps_display, 
-                                       output_fps_display, v_queue))
+                                       output_fps_display, v_queue, livestream_button_display,
+                                       video_button_display, check_button_display, button_display, button_stop_display))
+
+    # stop record button
+    button_stop_display = ttk.Button(root, text="Stop Record", width=200,
+                                     command=lambda: stop_capture(video_capture, output_feed, livestream_button_display,
+                                       video_button_display, check_button_display))
+
     
     # display everything to grid
     title_display.grid(row=0, column=0, columnspan=2, pady=10, stick="nsew")
