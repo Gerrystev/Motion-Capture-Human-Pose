@@ -14,8 +14,7 @@ from tkinter import messagebox
 from VideoCapture import VideoCapture
 from OutputFeed import OutputFeed
 
-import _init_paths
-from core.config import config
+from lib.core.config import config
 
 def update_video(fps_queue, image_label, fps_label, queue):
    width, height = 640, 360
@@ -51,7 +50,7 @@ def update_output(next_fps, image_label, fps_label, next_frame):
        fps_label.configure(text=str(fps) + " FPS")
        root.update()
    except:
-       # skip output framee
+       # skip output frame
        print()
 
 def update_all(root, video_capture, output_feed, v_label, o_label, v_fps, v_fps_label,
@@ -146,6 +145,7 @@ def show_dialog(root, video_capture, output_feed, video_display,
         print()
 
 if __name__ == '__main__':
+    multiprocessing.freeze_support()
     root = Tk()
     root.title('Human Pose Estimation')
     frame = ttk.Frame(root, padding=20)

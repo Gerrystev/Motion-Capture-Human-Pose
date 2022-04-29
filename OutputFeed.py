@@ -9,17 +9,17 @@ import torch.utils.data
 import torch.utils.data.distributed
 import torchvision.transforms as transforms
 
-import _init_paths
-from core.config import config
-from core.config import update_config
-from core.inference import get_final_preds
-from utils.transforms import *
+
+from lib.core.config import config
+from lib.core.config import update_config
+from lib.core.inference import get_final_preds
+from lib.utils.transforms import *
 
 # import yolo
-from yolov4.tool.utils import *
-from yolov4.tool.torch_utils import *
-from yolov4.tool.darknet2pytorch import Darknet
-import models
+from lib.yolov4.tool.utils import *
+from lib.yolov4.tool.torch_utils import *
+from lib.yolov4.tool.darknet2pytorch import Darknet
+import lib.models
 
 import torch
 import cv2
@@ -27,13 +27,13 @@ import numpy as np
 import json
 import codecs
 
-from common.generators import UnchunkedGenerator
-from common.model import TemporalModel
-from common.humaneva_dataset import humaneva_skeleton, HUMANEVA_KEYPOINTS
-from common.camera import camera_to_world
-from common.camera import normalize_screen_coordinates, reset_screen_coordinate
+from lib.common.generators import UnchunkedGenerator
+from lib.common.model import TemporalModel
+from lib.common.humaneva_dataset import humaneva_skeleton, HUMANEVA_KEYPOINTS
+from lib.common.camera import camera_to_world
+from lib.common.camera import normalize_screen_coordinates, reset_screen_coordinate
 
-from common.visualization import Grid3D
+from lib.common.visualization import Grid3D
 
 # keypoints index
 # humaneva index
@@ -182,11 +182,7 @@ class OutputFeed:
         sized = cv2.cvtColor(sized, cv2.COLOR_BGR2RGB)
 
         for i in range(2):
-            start = time.time()
             boxes = do_detect(self.yolo_model, sized, 0.4, 0.6, use_cuda)
-            finish = time.time()
-            # if i == 1:
-            #     print('Image: Predicted in %f seconds.' % ((finish - start)))
 
         return boxes[0]
 
@@ -206,8 +202,6 @@ class OutputFeed:
 
     def animate_3d(self, preds_3d):
         # animation properties
-        azimuth = np.array(0., dtype='float32')
-        viewport = (640, 360)
         cam = {
             'orientation': [0.4214752, -0.4961493, -0.5838273, 0.4851187],
             'translation': [4112.9121, 626.4929, 845.2988],
@@ -389,7 +383,7 @@ class OutputFeed:
         torch.backends.cudnn.deterministic = config.CUDNN.DETERMINISTIC
         torch.backends.cudnn.enabled = config.CUDNN.ENABLED
 
-        self.simple_model = eval('models.' + config.MODEL.NAME + '.get_pose_net')(
+        self.simple_model = eval('lib.models.' + config.MODEL.NAME + '.get_pose_net')(
             config, is_train=False
         )
 

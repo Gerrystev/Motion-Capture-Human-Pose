@@ -1,5 +1,5 @@
 import torch
-from yolov4.tool.torch_utils import convert2cpu
+from lib.yolov4.tool.torch_utils import convert2cpu
 
 
 def parse_cfg(cfgfile):

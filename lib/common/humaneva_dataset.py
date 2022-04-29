@@ -6,7 +6,7 @@
 #
 
 import numpy as np
-from common.skeleton import Skeleton
+from lib.common.skeleton import Skeleton
        
 humaneva_skeleton = Skeleton(parents=[-1, 0, 1, 2, 3, 1, 5, 6, 0, 8, 9, 0, 11, 12, 1],
        joints_left=[2, 3, 4, 8, 9, 10],

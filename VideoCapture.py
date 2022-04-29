@@ -3,8 +3,7 @@ import torch.multiprocessing as multiprocessing
 import cv2
 import time
 
-import _init_paths
-from core.config import config
+from lib.core.config import config
 
 class VideoCapture:
     def __init__(self, queue, video_link = 0):
