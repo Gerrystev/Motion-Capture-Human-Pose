@@ -147,6 +147,7 @@ def show_dialog(root, video_capture, output_feed, video_display,
 
 if __name__ == '__main__':
     root = Tk()
+    root.title('Human Pose Estimation')
     frame = ttk.Frame(root, padding=20)
     
     # labels
