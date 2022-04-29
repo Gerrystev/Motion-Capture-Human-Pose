@@ -351,8 +351,6 @@ class OutputFeed:
 
                                 predicted_3d_pos = self.videopose_model(inputs_2d)
 
-                                # Undo flipping and take average with non-flipped version
-                                predicted_3d_pos[0, :, :, 0] *= -1
                                 predicted_3d_pos[0, :, kps_left + kps_right] = predicted_3d_pos[0, :,
                                                                                      kps_right + kps_left]
                                 predicted_3d_pos = torch.mean(predicted_3d_pos, dim=0, keepdim=True)

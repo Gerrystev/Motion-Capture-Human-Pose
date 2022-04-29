@@ -17,13 +17,6 @@ from OutputFeed import OutputFeed
 import _init_paths
 from core.config import config
 
-def switch_state(b):
-    # switch state button
-    if b["state"] == NORMAL:
-        b["state"] = DISABLED
-    else:
-        b["state"] = NORMAL
-
 def update_video(fps_queue, image_label, fps_label, queue):
    width, height = 640, 360
    if not queue.empty(): 
@@ -123,7 +116,7 @@ def show_thumbnail(root, first_image, image_label):
    
 def browse_files(root, video_capture, output_feed, video_display,
                  output_display, button_display):
-    filename = filedialog.askopenfilename(filetypes = ( ("video files",".mp4;.avi"), ) )
+    filename = filedialog.askopenfilename(filetypes = ( ("video files",".mp4 .avi"), ) )
 
     try:
         # initialize videocapture with selected file
