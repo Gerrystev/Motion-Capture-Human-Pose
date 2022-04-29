@@ -29,8 +29,7 @@ import codecs
 
 from common.generators import UnchunkedGenerator
 from common.model import TemporalModel
-from common.humaneva_dataset import humaneva_skeleton
-from common.custom_dataset import custom_camera_params
+from common.humaneva_dataset import humaneva_skeleton, HUMANEVA_KEYPOINTS
 from common.camera import camera_to_world
 from common.camera import normalize_screen_coordinates, reset_screen_coordinate
 
@@ -38,22 +37,22 @@ from common.visualization import Grid3D
 
 # keypoints index
 # humaneva index
-hhead = np.where(config.HUMANEVA_KEYPOINTS == 'head')[0][0]
-hpelv = np.where(config.HUMANEVA_KEYPOINTS == 'pelvis')[0][0]
-hthor = np.where(config.HUMANEVA_KEYPOINTS == 'thorax')[0][0]
-hlsho = np.where(config.HUMANEVA_KEYPOINTS == 'lsho')[0][0]
-hlelb = np.where(config.HUMANEVA_KEYPOINTS == 'lelb')[0][0]
-hlwri = np.where(config.HUMANEVA_KEYPOINTS == 'lwri')[0][0]
-hlhip = np.where(config.HUMANEVA_KEYPOINTS == 'lhip')[0][0]
-hlkne = np.where(config.HUMANEVA_KEYPOINTS == 'lkne')[0][0]
-hlank = np.where(config.HUMANEVA_KEYPOINTS == 'lank')[0][0]
+hhead = np.where(HUMANEVA_KEYPOINTS == 'head')[0][0]
+hpelv = np.where(HUMANEVA_KEYPOINTS == 'pelvis')[0][0]
+hthor = np.where(HUMANEVA_KEYPOINTS == 'thorax')[0][0]
+hlsho = np.where(HUMANEVA_KEYPOINTS == 'lsho')[0][0]
+hlelb = np.where(HUMANEVA_KEYPOINTS == 'lelb')[0][0]
+hlwri = np.where(HUMANEVA_KEYPOINTS == 'lwri')[0][0]
+hlhip = np.where(HUMANEVA_KEYPOINTS == 'lhip')[0][0]
+hlkne = np.where(HUMANEVA_KEYPOINTS == 'lkne')[0][0]
+hlank = np.where(HUMANEVA_KEYPOINTS == 'lank')[0][0]
 
-hrsho = np.where(config.HUMANEVA_KEYPOINTS == 'rsho')[0][0]
-hrelb = np.where(config.HUMANEVA_KEYPOINTS == 'relb')[0][0]
-hrwri = np.where(config.HUMANEVA_KEYPOINTS == 'rwri')[0][0]
-hrkne = np.where(config.HUMANEVA_KEYPOINTS == 'rkne')[0][0]
-hrank = np.where(config.HUMANEVA_KEYPOINTS == 'rank')[0][0]
-hrhip = np.where(config.HUMANEVA_KEYPOINTS == 'rhip')[0][0]
+hrsho = np.where(HUMANEVA_KEYPOINTS == 'rsho')[0][0]
+hrelb = np.where(HUMANEVA_KEYPOINTS == 'relb')[0][0]
+hrwri = np.where(HUMANEVA_KEYPOINTS == 'rwri')[0][0]
+hrkne = np.where(HUMANEVA_KEYPOINTS == 'rkne')[0][0]
+hrank = np.where(HUMANEVA_KEYPOINTS == 'rank')[0][0]
+hrhip = np.where(HUMANEVA_KEYPOINTS == 'rhip')[0][0]
 
 # mpii index
 head = np.where(config.MPII_KEYPOINTS == 'head')[0][0]
@@ -214,11 +213,8 @@ class OutputFeed:
             'translation': [4112.9121, 626.4929, 845.2988],
         }
 
-        # cam = custom_camera_params
         prediction = camera_to_world(preds_3d, R=np.array(cam['orientation'], dtype='float32'),
                                      t=np.array(cam['translation'], dtype='float32')/1000)
-        # rot = cam['orientation']
-        # prediction = camera_to_world(prediction, R=rot, t=0)
 
         anim_output = {'Reconstruction': prediction}
         self.skel_queue.put(anim_output)

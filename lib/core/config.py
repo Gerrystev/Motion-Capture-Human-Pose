@@ -17,12 +17,7 @@ from easydict import EasyDict as edict
 
 config = edict()
 
-config.OUTPUT_DIR = ''
-config.LOG_DIR = ''
-config.DATA_DIR = ''
 config.GPUS = '0'
-config.WORKERS = 0
-config.PRINT_FREQ = 20
 
 # Cudnn related params
 config.CUDNN = edict()
@@ -60,90 +55,10 @@ config.MODEL.STYLE = 'pytorch'
 config.LOSS = edict()
 config.LOSS.USE_TARGET_WEIGHT = True
 
-# DATASET related params
-config.DATASET = edict()
-config.DATASET.ROOT = ''
-config.DATASET.DATASET = 'humaneva'
-config.DATASET.TRAIN_SET = 'train'
-config.DATASET.TEST_SET = 'valid'
-config.DATASET.DATA_FORMAT = 'jpg'
-config.DATASET.HYBRID_JOINTS_TYPE = ''
-config.DATASET.SELECT_DATA = False
-
-# training data augmentation
-config.DATASET.FLIP = True
-config.DATASET.SCALE_FACTOR = 0.25
-config.DATASET.ROT_FACTOR = 30
-
-# train
-config.TRAIN = edict()
-
-config.TRAIN.LR_FACTOR = 0.1
-config.TRAIN.LR_STEP = [90, 110]
-config.TRAIN.LR = 0.001
-
-config.TRAIN.OPTIMIZER = 'adam'
-config.TRAIN.MOMENTUM = 0.9
-config.TRAIN.WD = 0.0001
-config.TRAIN.NESTEROV = False
-config.TRAIN.GAMMA1 = 0.99
-config.TRAIN.GAMMA2 = 0.0
-
-config.TRAIN.BEGIN_EPOCH = 0
-config.TRAIN.END_EPOCH = 140
-
-config.TRAIN.RESUME = False
-config.TRAIN.CHECKPOINT = ''
-
-config.TRAIN.BATCH_SIZE = 1
-config.TRAIN.SHUFFLE = True
-
 # testing
 config.TEST = edict()
-
-# size of images for each device
-config.TEST.BATCH_SIZE = 1
-# Test Model Epoch
-config.TEST.FLIP_TEST = False
 config.TEST.POST_PROCESS = True
 config.TEST.SHIFT_HEATMAP = True
-
-config.TEST.USE_GT_BBOX = False
-# nms
-config.TEST.OKS_THRE = 0.5
-config.TEST.IN_VIS_THRE = 0.0
-config.TEST.COCO_BBOX_FILE = ''
-config.TEST.BBOX_THRE = 1.0
-config.TEST.MODEL_FILE = ''
-config.TEST.IMAGE_THRE = 0.0
-config.TEST.NMS_THRE = 1.0
-
-# debug
-config.DEBUG = edict()
-config.DEBUG.DEBUG = False
-config.DEBUG.SAVE_BATCH_IMAGES_GT = False
-config.DEBUG.SAVE_BATCH_IMAGES_PRED = False
-config.DEBUG.SAVE_HEATMAPS_GT = False
-config.DEBUG.SAVE_HEATMAPS_PRED = False
-
-# humaneva keypoint index
-config.HUMANEVA_KEYPOINTS = np.array([
-    'pelvis',
-    'thorax',
-    'lsho',
-    'lelb',
-    'lwri',
-    'rsho',
-    'relb',
-    'rwri',
-    'lhip',
-    'lkne',
-    'lank',
-    'rhip',
-    'rkne',
-    'rank',
-    'head'
-])
 
 # mpii keypoint index
 config.MPII_KEYPOINTS = np.array([
