@@ -27,6 +27,7 @@ class VideoCapture:
         # queue for processing image
         self.queue = queue
         self.running = False
+        self.crashed = True
         
     def start(self):
         self.process.start()
@@ -65,18 +66,19 @@ class VideoCapture:
         # video capture loop
         # self.cap = cv2.VideoCapture("rtsp://192.168.1.2:8080/h264_ulaw.sdp")
         self.cap = cv2.VideoCapture(self.video_link)
-        width, height = 640, 360
 
         while True:
             ret, frame = self.cap.read()
             if frame is not None:
-                # frame = cv2.resize(frame, (width, height))
+                self.crashed = False
                 if config.IS_LIVESTREAM:
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 config.IS_RUNNING = True
                 self.queue.put(frame)
                 # self.calculate_fps()
             else:
+                if self.crashed:
+                    self.queue.put('crashed this')
                 config.IS_RUNNING = False
                 break
             self.running = ret

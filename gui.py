@@ -9,6 +9,7 @@ from tkinter import *
 from tkinter import ttk
 from tkinter import simpledialog
 from tkinter import filedialog
+from tkinter import messagebox
 
 from VideoCapture import VideoCapture
 from OutputFeed import OutputFeed
@@ -28,8 +29,8 @@ def update_video(fps_queue, image_label, fps_label, queue):
    if not queue.empty(): 
        # fps = fps_queue.get()
        fps = 0
-       frame1 = np.copy(queue.get())
-       frame = cv2.resize(frame1, (width, height))
+       frame = np.copy(queue.get())
+       frame = cv2.resize(frame, (width, height))
        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
        img = PIL.Image.fromarray(frame)
        imgtk = PIL.ImageTk.PhotoImage(image=img)
@@ -38,9 +39,6 @@ def update_video(fps_queue, image_label, fps_label, queue):
    
        # put fps into label
        fps_label.configure(text=str(fps) + " FPS")
-
-       # if config.IS_LIVESTREAM:
-       #     queue.put(np.copy(frame1))
 
        root.update()
 
@@ -60,14 +58,31 @@ def update_output(next_fps, image_label, fps_label, next_frame):
        fps_label.configure(text=str(fps) + " FPS")
        root.update()
    except:
-       print('error updating feed')
+       # skip output framee
+       print()
 
 def update_all(root, video_capture, output_feed, v_label, o_label, v_fps, v_fps_label,
                o_fps_label, v_queue,
                livestream_button, video_button, check_button, button_capture, button_stop,
                timeout_time=-1,):
    if not v_queue.empty():
-       update_video(v_fps, v_label, v_fps_label, v_queue)
+       try:
+           update_video(v_fps, v_label, v_fps_label, v_queue)
+       except:
+           messagebox.showerror('Invalid video file', 'Please check your IP address/ video file.')
+
+           livestream_button["state"] = NORMAL
+           video_button["state"] = NORMAL
+           check_button["state"] = NORMAL
+
+           button_stop.grid_forget()
+           button_capture["state"] = DISABLED
+           button_capture.grid(row=8, column=0, columnspan=2, pady=5)
+
+           video_capture.destroy_window()
+
+           return
+
        output_feed.process_frame()
        update_output(output_feed.fps, o_label, o_fps_label, output_feed.o_frame)
        timeout_time = time.time()
@@ -86,6 +101,7 @@ def update_all(root, video_capture, output_feed, v_label, o_label, v_fps, v_fps_
            check_button["state"] = NORMAL
 
            button_stop.grid_forget()
+           button_capture["state"] = DISABLED
            button_capture.grid(row=8, column=0, columnspan=2, pady=5)
 
            return
@@ -107,26 +123,34 @@ def show_thumbnail(root, first_image, image_label):
    
 def browse_files(root, video_capture, output_feed, video_display,
                  output_display, button_display):
-    filename = filedialog.askopenfilename(filetypes = ( ("video files","*.*"), ) )
-    
-    # initialize videocapture with selected file
-    video_capture.set_videocapture(filename)
-    
-    show_thumbnail(root, video_capture.first_frame, video_display)
-    show_thumbnail(root, output_feed.first_frame, output_display)
-    button_display['state'] = "normal"
+    filename = filedialog.askopenfilename(filetypes = ( ("video files",".mp4;.avi"), ) )
+
+    try:
+        # initialize videocapture with selected file
+        video_capture.set_videocapture(filename)
+
+        show_thumbnail(root, video_capture.first_frame, video_display)
+        show_thumbnail(root, output_feed.first_frame, output_display)
+        button_display['state'] = "normal"
+    except:
+        # User choose cancel
+        print()
 
 def show_dialog(root, video_capture, output_feed, video_display,
                 output_display, button_display):
     ip_address = simpledialog.askstring("Input", "Input the ip address of camera",
                                 parent=root)
-    
-    # initialize videocapture with ip address
-    video_capture.set_videocapture(ip_address, True)
-    
-    show_thumbnail(root, video_capture.first_frame, video_display)
-    show_thumbnail(root, output_feed.first_frame, output_display)
-    button_display['state'] = NORMAL
+
+    try:
+        # initialize videocapture with ip address
+        video_capture.set_videocapture(ip_address, True)
+
+        show_thumbnail(root, video_capture.first_frame, video_display)
+        show_thumbnail(root, output_feed.first_frame, output_display)
+        button_display['state'] = NORMAL
+    except:
+        # User choose cancel
+        print()
 
 if __name__ == '__main__':
     root = Tk()
@@ -198,6 +222,7 @@ if __name__ == '__main__':
         video_button["state"] = NORMAL
         check_button["state"] = NORMAL
         button_stop_display.grid_forget()
+        button_display["state"] = DISABLED
         button_display.grid(row=8, column=0, columnspan=2, pady=5)
 
     # start record button
