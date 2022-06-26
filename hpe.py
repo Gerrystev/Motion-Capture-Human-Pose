@@ -16,12 +16,12 @@ from OutputFeed import OutputFeed
 
 from lib.core.config import config
 
-def update_video(fps_queue, image_label, fps_label, queue):
+def update_video(fps_queue, image_label, fps_label, bbox_image):
    width, height = 640, 360
-   if not queue.empty(): 
+   if bbox_image is not None:
        # fps = fps_queue.get()
        fps = 0
-       frame = np.copy(queue.get())
+       frame = np.copy(bbox_image)
        frame = cv2.resize(frame, (width, height))
        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
        img = PIL.Image.fromarray(frame)
@@ -59,8 +59,10 @@ def update_all(root, video_capture, output_feed, v_label, o_label, v_fps, v_fps_
                timeout_time=-1,):
    if not v_queue.empty():
        try:
-           update_video(v_fps, v_label, v_fps_label, v_queue)
-       except:
+           bbox_image = output_feed.process_bbox()
+           update_video(v_fps, v_label, v_fps_label, bbox_image)
+       except Exception as e:
+           print(e)
            messagebox.showerror('Invalid video file', 'Please check your IP address/ video file.')
 
            livestream_button["state"] = NORMAL
@@ -239,7 +241,7 @@ if __name__ == '__main__':
     output_label_display.grid(row=1, column=1, padx=10, sticky="nsew")
     video_display.grid(row=2, column=0, padx=10, sticky="nsew")
     output_display.grid(row=2, column=1, padx=10, sticky="nsew")
-    video_fps_display.grid(row=3, column=0, pady=20, sticky="nsew")
+    # video_fps_display.grid(row=3, column=0, pady=20, sticky="nsew")
     output_fps_display.grid(row=3, column=1, pady=20, sticky="nsew")
     video_type_label_display.grid(row=4, column=0, columnspan=2, pady=5)
     livestream_button_display.grid(row=5, column=0, columnspan=2, pady=5)

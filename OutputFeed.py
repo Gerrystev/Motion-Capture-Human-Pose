@@ -19,6 +19,7 @@ from lib.utils.transforms import *
 from lib.yolov4.tool.utils import *
 from lib.yolov4.tool.torch_utils import *
 from lib.yolov4.tool.darknet2pytorch import Darknet
+from lib.yolov4.tool.utils import plot_boxes_cv2
 import lib.models
 
 import torch
@@ -93,11 +94,16 @@ class OutputFeed:
         self.videopose_model = None
         
         self.v_queue = v_queue
+        self.v_frame = None
         self.o_frame = o_frame
         self.anim_queue = multiprocessing.Queue()
         self.skel_queue = multiprocessing.Queue()
 
         self.frame_processed = 0
+
+        # properties of bbox
+        self.max_index_bbox = 0
+        self.bbox = None
 
         # ndarray of 2d predicted joints
         self.preds_2d = None
@@ -182,7 +188,7 @@ class OutputFeed:
         sized = cv2.cvtColor(sized, cv2.COLOR_BGR2RGB)
 
         for i in range(2):
-            boxes = do_detect(self.yolo_model, sized, 0.4, 0.6, use_cuda)
+            boxes = do_detect(self.yolo_model, sized, 0.8, 0.6, use_cuda)
 
         return boxes[0]
 
@@ -262,19 +268,35 @@ class OutputFeed:
 
         return new_preds
 
+    def process_bbox(self):
+        if not self.v_queue.empty():
+            self.current_frame = np.copy(self.v_queue.get())
+
+            # object detection
+            self.bbox = self.detect_bbox(self.current_frame)
+
+            self.max_index_bbox, image = plot_boxes_cv2(self.current_frame, self.bbox)
+        else:
+            self.current_frame = None
+            self.bbox = None
+
+        return image
 
     def process_frame(self):
         # Human estimation
-        if not self.v_queue.empty():
-            img = np.copy(self.v_queue.get())
+        if self.current_frame is not None and self.bbox is not None:
+            img = self.current_frame
 
             # object detection
-            bbox = self.detect_bbox(img)
+            bbox = self.bbox
+            max_index_bbox = self.max_index_bbox
 
-            # 2d estimation
-            if len(bbox) == 1:
-                # if person is detected
-                cen, s = self._box2cs(bbox[0], img.shape[1], img.shape[0])
+            if max_index_bbox > -1:
+                # if bbox detected
+
+                # 2d estimation
+                # selected max height of bbox
+                cen, s = self._box2cs(bbox[max_index_bbox], img.shape[1], img.shape[0])
                 r = 0
 
                 trans = get_affine_transform(cen, s, r, [256, 256])
@@ -375,7 +397,7 @@ class OutputFeed:
     def load_simple_model(self):
         # load efficientnet simple baseline weights
         cfgfile = './simple_baseline_cfg/efficientnet/256x256_d256x3_adam_lr1e-3_k16.yaml'
-        weightfile = './models/efficientnet_simple_baseline/efficientnet_simple_baseline_16.pth.tar'
+        weightfile = './models/efficientnet_simple_baseline/efficientnet_simple_baseline_b0.pth.tar'
         update_config(cfgfile)
 
         # cudnn related setting
@@ -391,7 +413,16 @@ class OutputFeed:
         self.simple_model = torch.nn.DataParallel(self.simple_model, device_ids=gpus).cuda()
 
         print('=> loading model from {}'.format(weightfile))
-        self.simple_model.load_state_dict(torch.load(weightfile))
+        state_dict = torch.load(weightfile)
+        # create new OrderedDict that does not contain `module.`
+        from collections import OrderedDict
+        new_state_dict = OrderedDict()
+        for k, v in state_dict.items():
+            name = 'module.' + k  # remove `module.`
+            new_state_dict[name] = v
+        # load params
+        self.simple_model.load_state_dict(new_state_dict)
+        # self.simple_model.load_state_dict(torch.load(weightfile))
 
     def load_videopose(self):
         # generate metadata
@@ -431,17 +462,6 @@ class OutputFeed:
                   separators=(',', ':'),
                   sort_keys=True,
                   indent=4)
-
-    def video_loop(self):
-        # if waitingFrame is not empty render current object
-        while True:
-            if not self.v_queue.empty():
-                self.current_frame = self.v_queue.get()
-                self.current_frame = self.current_frame[:, :, :3]
-                    
-                self.process_frame()
-
-                self.calculate_fps()
         
     def destroy_window(self):
         try:

@@ -96,55 +96,56 @@ def nms_cpu(boxes, confs, nms_thresh=0.5, min_mode=False):
 
 
 
-def plot_boxes_cv2(img, boxes, savename=None, class_names=None, color=None):
+def plot_boxes_cv2(img, boxes):
     import cv2
-    img = np.copy(img)
-    colors = np.array([[1, 0, 1], [0, 0, 1], [0, 1, 1], [0, 1, 0], [1, 1, 0], [1, 0, 0]], dtype=np.float32)
-
-    def get_color(c, x, max_val):
-        ratio = float(x) / max_val * 5
-        i = int(math.floor(ratio))
-        j = int(math.ceil(ratio))
-        ratio = ratio - i
-        r = (1 - ratio) * colors[i][c] + ratio * colors[j][c]
-        return int(r * 255)
+    image = np.copy(img)
 
     width = img.shape[1]
     height = img.shape[0]
+
+    max_index = -1
+    max_percent = 0
+    # get max index
     for i in range(len(boxes)):
         box = boxes[i]
         x1 = int(box[0] * width)
         y1 = int(box[1] * height)
         x2 = int(box[2] * width)
         y2 = int(box[3] * height)
-        bbox_thick = int(0.6 * (height + width) / 600)
-        if color:
-            rgb = color
+
+        w = x2 - x1
+        h = y2 - y1
+
+        if w > h:
+            s = width
         else:
-            rgb = (255, 0, 0)
-        if len(box) >= 7 and class_names:
-            cls_conf = box[5]
-            cls_id = box[6]
-            print('%s: %f' % (class_names[cls_id], cls_conf))
-            classes = len(class_names)
-            offset = cls_id * 123457 % classes
-            red = get_color(2, offset, classes)
-            green = get_color(1, offset, classes)
-            blue = get_color(0, offset, classes)
-            if color is None:
-                rgb = (red, green, blue)
-            msg = str(class_names[cls_id])+" "+str(round(cls_conf,3))
-            t_size = cv2.getTextSize(msg, 0, 0.7, thickness=bbox_thick // 2)[0]
-            c1, c2 = (x1,y1), (x2, y2)
-            c3 = (c1[0] + t_size[0], c1[1] - t_size[1] - 3)
-            cv2.rectangle(img, (x1,y1), (np.float32(c3[0]), np.float32(c3[1])), rgb, -1)
-            img = cv2.putText(img, msg, (c1[0], np.float32(c1[1] - 2)), cv2.FONT_HERSHEY_SIMPLEX,0.7, (0,0,0), bbox_thick//2,lineType=cv2.LINE_AA)
-        
-        img = cv2.rectangle(img, (x1, y1), (x2, y2), rgb, bbox_thick)
-    if savename:
-        print("save plot results to %s" % savename)
-        cv2.imwrite(savename, img)
-    return img
+            s = height
+
+        box_percent = max(w, h) / s * 100
+
+        if box_percent > max_percent:
+            max_index = i
+            max_percent = box_percent
+
+    # Draw box
+    for i in range(len(boxes)):
+        box = boxes[i]
+        x1 = int(box[0] * width)
+        y1 = int(box[1] * height)
+        x2 = int(box[2] * width)
+        y2 = int(box[3] * height)
+        bbox_thick = int(1 * (height + width) / 600)
+
+        if len(box) >= 7:
+            if max_index == i:
+                rgb = (0, 255, 0)
+            else:
+                # dump smallest
+                img[y1:y2, x1:x2, :] = [0, 0, 0]
+                rgb = (255, 0, 255)
+
+        image = cv2.rectangle(image, (x1, y1), (x2, y2), rgb, bbox_thick)
+    return max_index, image
 
 
 def read_truths(lab_path):
