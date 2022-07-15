@@ -26,7 +26,7 @@ As we can see, its original have better accuracy than its modification, but Effi
 
 ## Demonstration
 In this application, we can insert video or livestream IP camera to be used for human pose estimation. This app very easy to use, we just need to choose video file contains the movement of a single person and start record.
-![](https://github.com/Gerrystev/Motion-Capture-Human-Pose/blob/mpii/assets/MPII%20-%20Walk.gif)
+![](https://github.com/Gerrystev/Motion-Capture-Human-Pose/blob/main/assets/MPII%20-%20Walk.gif)
 
 ## Note
 For using model, extract from [this](https://drive.google.com/file/d/1PvRAveVK1TcJMM4zkeT3ffMCOp3CZeIZ/view?usp=sharing) to root folder
