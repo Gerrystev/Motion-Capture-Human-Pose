@@ -1,9 +1,9 @@
 # Motion Capture using Human Pose Estimation 3D with YOLOv4-Tiny, EfficientNet Simple Baseline and VideoPose3D
 
-This project has goal to substitute motion capture with human pose estimation with only deep learning methods and camera. This project using deep learning model such as YOLOv4-Tiny, EfficientNet Simple Baseline Modification, and VideoPose3D. These models can be view in the repository as link below: 
-[YOLO-Darknet](https://github.com/AlexeyAB/darknet)
-[PyTorch-YOLOv4](https://github.com/Tianxiaomo/pytorch-YOLOv4)
-[Simple Baseline](https://github.com/microsoft/human-pose-estimation.pytorch)
+This project has goal to substitute motion capture with human pose estimation with only deep learning methods and camera. This project using deep learning model such as YOLOv4-Tiny, EfficientNet Simple Baseline Modification, and VideoPose3D. These models can be view in the repository as link below: <br/>
+[YOLO-Darknet](https://github.com/AlexeyAB/darknet) <br/>
+[PyTorch-YOLOv4](https://github.com/Tianxiaomo/pytorch-YOLOv4) <br/>
+[Simple Baseline](https://github.com/microsoft/human-pose-estimation.pytorch) <br/>
 [VideoPose3D](https://github.com/facebookresearch/VideoPose3D)
 
 ## EfficientNet Simple Baseline Modification
